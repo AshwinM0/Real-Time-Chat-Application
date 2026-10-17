@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import useConversation from '../zustand/useConversation'
 import toast from 'react-hot-toast'
+import { useAuthContext } from '../context/AuthContext'
 
 const useSendMessage = () => {
 
     const [loading, setLoading] = useState(false)
-    const {messages, setMessages, selectedConversation} = useConversation()
+    const {addMessage, selectedConversation} = useConversation()
+    const { expireSession } = useAuthContext()
 
     const sendMessage = async (message) => {
         setLoading(true)
@@ -20,12 +22,13 @@ const useSendMessage = () => {
                 body : JSON.stringify({message})
             })
 
+            if(res.status === 401) return expireSession()
 
             const data = await res.json()
 
             if(data.error) throw new Error(data.error)
 
-            setMessages([...messages, data])
+            addMessage(data)
 
         } catch(e) {
             console.log(e.error)

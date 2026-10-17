@@ -16,6 +16,8 @@ const useSignUp = () => {
         const res = await fetch("http://localhost:5000/api/auth/signup", {
             method: "POST",
             headers: {"Content-Type" : "application/json"},
+            // Without this the browser discards the jwt cookie the server sets on signup.
+            credentials: 'include',
             body: JSON.stringify({fullName, username, password, confirmPassword, gender})
         })
 

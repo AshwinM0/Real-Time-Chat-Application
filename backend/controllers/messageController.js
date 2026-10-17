@@ -1,5 +1,6 @@
 import Conversation from '../models/conversationModel.js'
 import Message from '../models/messageModel.js'
+import { getIO } from '../socket/socket.js'
 
 export const sendMessage = async (req, res) => {
     
@@ -30,6 +31,17 @@ export const sendMessage = async (req, res) => {
 
         // run in parallel
         await Promise.all([conversation.save(), newMessage.save()])
+
+        // Push the saved message to everyone who should see it live.
+        // Rooms are named after user ids (see socket/socket.js), so:
+        //  - receiverId reaches every tab the receiver has open
+        //  - senderId reaches the sender's *other* tabs, keeping them in sync
+        //    (the tab that sent it also gets it, and its store drops the duplicate)
+        // If neither is connected, nobody receives it. That's fine: the message is
+        // already in MongoDB and loads the next time the chat is opened.
+        // The second argument rides along so the receiver can name the sender in a toast.
+        const sender = { fullName: req.user.fullName, profilePic: req.user.profilePic }
+        getIO().to([receiverId, senderId.toString()]).emit("newMessage", newMessage, sender)
 
         res.status(201).json(newMessage)
 
