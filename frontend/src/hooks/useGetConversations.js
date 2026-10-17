@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
+import { useAuthContext } from "../context/AuthContext"
 
 
 const useGetConversations = () => {
-  
+
     const [loading, setLoading] = useState(false)
     const [conversations, setConversations] = useState([])
+    const { expireSession } = useAuthContext()
 
     useEffect(() => {
         const getConversations = async () => {
@@ -15,6 +17,9 @@ const useGetConversations = () => {
                 const res = await fetch("http://localhost:5000/api/users", {
                     credentials: 'include'
                 })
+
+                if(res.status === 401) return expireSession()
+
                 const data = await res.json()
 
                 if(data.error) {
@@ -31,7 +36,7 @@ const useGetConversations = () => {
         }
 
         getConversations();
-    }, [])
+    }, [expireSession])
 
     return {loading, conversations}
 }
