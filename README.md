@@ -1,38 +1,139 @@
 # Real-Time Chat Application
 
-![chat-app](https://github.com/BunsGlazin/Real-Time-Chat-Application/assets/145743047/664f794c-a765-402c-9f75-3cda53ecd0ac)
+A one-to-one chat app built with MongoDB, Express, React and Node.js, using Socket.IO for live updates. Messages arrive instantly, you can see who's online, and chats you aren't looking at collect unread badges.
 
-## Tech used:
+![Screenshot of the chat app](https://github.com/AshwinM0/Real-Time-Chat-Application/assets/145743047/664f794c-a765-402c-9f75-3cda53ecd0ac)
 
-- MongoDB: A NoSQL database for storing chat messages and user information.
-- Express.js: A web application framework for building APIs.
-- React.js: A JavaScript library for building user interfaces.
-- Node.js: A JavaScript runtime for building scalable server-side applications.
+## Features
 
-## Features:
+- **Real-time messaging** over Socket.IO. Every message is saved to MongoDB first, so messages sent while you were offline load when you open the chat.
+- **Online presence** across tabs and devices: you count as online until your last tab closes.
+- **Unread badges and in-app notifications** for messages in chats you don't have open.
+- **Tabs stay in sync**: a message you send shows up once in every tab you have open.
+- **Catch-up after a dropped connection**: when the socket reconnects, the open chat reloads what it missed.
+- **Cookie-based authentication**: a JWT in an `httpOnly` cookie, checked on protected API routes and on the socket handshake. When the session expires, you're sent back to the login page.
 
-* Authentication & Authorization with JWT
-* Global state management with Zustand
-* Error handling both on the server and on the client
-* Amazing and User-friendly UI
+## Tech stack
 
-## Setup .env file
+| Area | Tools |
+|---|---|
+| Backend | Node.js, Express, Socket.IO, MongoDB with Mongoose, jsonwebtoken, bcryptjs |
+| Frontend | React 18, Vite, Zustand, Tailwind CSS with daisyUI, socket.io-client |
+| Tests | Jest, Supertest, mongodb-memory-server, React Testing Library, Playwright |
+| CI | GitHub Actions |
 
-```js
-PORT=...
-MONGO_DB_URI=...
-JWT_SECRET=...
-NODE_ENV=...
-```
+## How it works
 
-## Build the app
+- **REST for everything stored.** Signing up, logging in, listing users and loading history go through the Express API. Sending a message is a `POST` that saves it to MongoDB.
+- **Sockets for everything live.** After saving a message, the server pushes it to the receiver and to all of the sender's tabs. Each socket joins a room named after its user's id, so one emit reaches every tab and device that user has open.
+- **One identity check for both.** The socket handshake carries the same `jwt` cookie as API requests, so the server knows who each socket belongs to without trusting anything the client says.
+- **Presence lives in memory.** The server keeps a map from user id to open sockets and broadcasts the online list whenever someone connects or disconnects. Because the map lives in one process, this design assumes a single server instance.
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 20.19 or newer (CI uses Node 22)
+- A MongoDB database: a local install, or a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster
+
+### 1. Install dependencies
 
 ```shell
-npm run build
+npm install
+npm install --prefix frontend
 ```
 
-## Start the app
+### 2. Set up environment variables
+
+Copy the templates, then fill in `MONGO_DB_URI` and `JWT_SECRET` in `.env`:
 
 ```shell
-npm start
+cp .env.example .env
+cp frontend/.env.example frontend/.env   # optional: only to change where the frontend finds the API
+```
+
+| Variable | File | Required | Default | What it does |
+|---|---|---|---|---|
+| `MONGO_DB_URI` | `.env` | Yes | | MongoDB connection string |
+| `JWT_SECRET` | `.env` | Yes | | Signs login tokens. Changing it logs everyone out. |
+| `PORT` | `.env` | Yes | | Port for the API and Socket.IO, for example `5000` |
+| `CLIENT_ORIGIN` | `.env` | No | `http://localhost:3000` | The frontend's origin, the only one allowed to call the API with cookies |
+| `NODE_ENV` | `.env` | No | `development` | Set to `production` when deploying. Otherwise error responses include stack traces and server file paths. |
+| `VITE_API_URL` | `frontend/.env` | No | `http://localhost:5000` | Where the frontend finds the backend. Read when Vite starts or builds. |
+
+To generate a strong `JWT_SECRET`:
+
+```shell
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
+
+#### Keeping secrets out of git
+
+- Every `.env` file is gitignored. Only the `.env.example` templates are committed, and they hold no real values.
+- `.gitignore` only applies to files git isn't already tracking. If a `.env` was ever committed, stop tracking it with `git rm --cached .env`.
+- If a secret reaches a commit, treat it as public and **rotate it**: set a new database password and a new `JWT_SECRET`. Deleting the file in a later commit leaves the secret in the history.
+- Variables starting with `VITE_` are built into the JavaScript that browsers download, so anyone can read them. Never put a secret in one.
+
+### 3. Run it
+
+In two terminals:
+
+```shell
+npm run server                 # backend on the PORT you set; restarts when files change
+npm --prefix frontend run dev  # frontend on http://localhost:3000
+```
+
+Open http://localhost:3000 and sign up. To try real-time chat on your own, sign up a second user in a private window.
+
+### Production build
+
+```shell
+npm --prefix frontend run build   # static files in frontend/dist
+node backend/server.js            # backend without auto-restart
+```
+
+Set `VITE_API_URL` before building, and set `CLIENT_ORIGIN` on the backend to the frontend's URL. Serve the frontend and backend from the same site, for example `app.example.com` and `api.example.com`: the login cookie isn't marked `SameSite=None`, so browsers won't reliably send it across sites.
+
+## Testing
+
+| Command | What it runs |
+|---|---|
+| `npm run test:backend` | Unit tests, plus API and Socket.IO integration tests against an in-memory MongoDB |
+| `npm run test:frontend` | Hooks, components and the chat store, with React Testing Library and a fake socket |
+| `npm run test:e2e` | Playwright tests in Chromium against the real backend and a production build of the frontend, plus a few with the API mocked |
+| `npm test` | All three, in that order |
+
+The tests never use your database or your secrets: they set their own variables and run MongoDB in memory. The first run downloads a MongoDB binary, which can take a minute.
+
+For coverage reports, run `npm run test:backend -- --coverage` or `npm --prefix frontend test -- --coverage`.
+
+Before the first end-to-end run, install Playwright's browser:
+
+```shell
+npx playwright install chromium
+```
+
+The end-to-end tests start their own backend on port 5100 and frontend on port 3100. If either port is busy, for example because the VS Code Playwright extension is holding it, the run stops with an "already used" error.
+
+Tests marked `test.failing` document known bugs, such as missing input validation. They start failing once the bug is fixed, as a reminder to turn them into normal tests.
+
+GitHub Actions runs all three suites on every push and pull request.
+
+## Project structure
+
+```
+backend/
+  server.js     entry point: HTTP server, Socket.IO and the MongoDB connection
+  app.js        builds the Express app, shared by server.js and the tests
+  socket/       Socket.IO: handshake authentication, presence, rooms
+  controllers/, routes/, models/, middleware/, db/, utils/
+  __tests__/    unit and integration tests (helpers in test/)
+frontend/
+  src/
+    context/    logged-in user and the socket connection
+    zustand/    chat store: open conversation, messages, unread counts
+    components/, pages/, hooks/
+  test/         Jest helpers
+e2e/            Playwright tests: real backend in tests/, mocked API in mocked/
+.github/workflows/test.yml   CI
 ```
