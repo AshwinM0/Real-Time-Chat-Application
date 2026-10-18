@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 .vs
 .env
+
+# Test output
+coverage
+test-results
+playwright-report
+frontend/dist-e2e

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import useConversation from '../zustand/useConversation'
 import { useAuthContext } from '../context/AuthContext'
 import { useSocketContext } from '../context/SocketContext'
+import { API_URL } from '../config'
 
 const useGetMessages = () => {
     const [loading, setLoading] = useState(false)
@@ -14,7 +15,7 @@ const useGetMessages = () => {
         const getMessages = async () => {
             setLoading(true)
             try {
-                let res = await fetch(`http://localhost:5000/api/messages/${selectedConversation._id}`, {
+                let res = await fetch(`${API_URL}/api/messages/${selectedConversation._id}`, {
                     credentials : 'include'
                 });
 

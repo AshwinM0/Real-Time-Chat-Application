@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useAuthContext } from "./AuthContext";
+import { API_URL } from "../config";
 
 const SocketContext = createContext({ socket: null, onlineUsers: [] });
 
@@ -21,7 +22,7 @@ export const SocketContextProvider = ({ children }) => {
         // io() opens the connection. withCredentials makes the browser attach the
         // jwt cookie to the handshake request, which is how the server knows who we are.
         // Nothing here sends a user id: the server reads it from the verified cookie.
-        const newSocket = io("http://localhost:5000", { withCredentials: true });
+        const newSocket = io(API_URL, { withCredentials: true });
 
         // The server broadcasts the full list on every connect/disconnect.
         newSocket.on("onlineUsers", setOnlineUsers);

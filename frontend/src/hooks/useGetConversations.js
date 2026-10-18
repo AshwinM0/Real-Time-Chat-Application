@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
 import { useAuthContext } from "../context/AuthContext"
+import { API_URL } from "../config"
 
 
 const useGetConversations = () => {
@@ -14,7 +15,7 @@ const useGetConversations = () => {
             setLoading(true)
             try {
 
-                const res = await fetch("http://localhost:5000/api/users", {
+                const res = await fetch(`${API_URL}/api/users`, {
                     credentials: 'include'
                 })
 

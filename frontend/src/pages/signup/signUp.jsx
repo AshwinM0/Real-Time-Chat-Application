@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import GenderCheckbox from './GenderCheckbox'
 import React, { useState } from 'react'
-import { set } from 'mongoose'
 import useSignUp from '../../hooks/useSignUp.js'
 
 const SignUp = () => {

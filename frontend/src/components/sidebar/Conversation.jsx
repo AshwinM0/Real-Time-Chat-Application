@@ -16,22 +16,26 @@ const Conversation = ({conversation, lastIdx}) => {
 
   return (
     <>
-      <div className={`flex gap-2 items-center hover:bg-sky-500 rounded p-2 py-1 cursor-pointer ${isSelected ? "bg-sky-500" : ""}`}
+      {/* A real button, so it can be reached with the keyboard and is named by the user's full name */}
+      <button type="button" className={`flex gap-2 items-center w-full text-left hover:bg-sky-500 rounded p-2 py-1 cursor-pointer ${isSelected ? "bg-sky-500" : ""}`}
        onClick={ () => setSelectedConversation(conversation)}>
         <div className={`avatar ${isOnline ? "online" : ""}`}>
           <div className="w-12 rounded-full">
+            {/* Empty alt: the name beside it already says who this is */}
             <img
-              src={conversation.profilePic} alt="user avatar"/>
+              src={conversation.profilePic} alt=""/>
           </div>
+          {/* The green dot is drawn by CSS, so screen readers need it in words */}
+          {isOnline && <span className="sr-only">online</span>}
         </div>
 
         <div className="flex flex-col flex-1">
           <div className="flex gap-3 justify-between">
             <p className="font-bold text-gray-200">{conversation.fullName}</p>
-            {unreadCount > 0 && <span className="badge badge-primary badge-sm">{unreadCount}</span>}
+            {unreadCount > 0 && <span className="badge badge-primary badge-sm" aria-label={`${unreadCount} unread messages`}>{unreadCount}</span>}
           </div>
         </div>
-      </div>
+      </button>
 
       {!lastIdx && <div className="divider my-0 py-0 h-1" />}
     </>
