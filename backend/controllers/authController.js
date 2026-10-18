@@ -63,7 +63,6 @@ export const signUp = async (req, res) => {
 export const login = async (req, res) => {
     
     try {
-        console.log("inside login")
         const {username, password} = req.body;
         
         const user = await User.findOne({username})

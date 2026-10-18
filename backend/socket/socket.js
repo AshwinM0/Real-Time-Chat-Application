@@ -6,18 +6,19 @@ import getUserFromToken from "../utils/getUserFromToken.js";
 // backend modules (e.g. messageController) reach it through getIO().
 let io;
 
-// Presence bookkeeping: userId -> Set of socket ids.
-// One user can hold several sockets at once (two tabs, laptop + phone).
-// They count as online while at least one of those sockets is connected.
-const userSockets = new Map();
-const onlineUserIds = () => [...userSockets.keys()];
-
 export const initSocket = (httpServer) => {
+    // Presence bookkeeping: userId -> Set of socket ids.
+    // One user can hold several sockets at once (two tabs, laptop + phone).
+    // They count as online while at least one of those sockets is connected.
+    // It lives in here so every server (each test starts its own) begins empty.
+    const userSockets = new Map();
+    const onlineUserIds = () => [...userSockets.keys()];
+
     io = new Server(httpServer, {
         // The socket handshake starts as an ordinary HTTP request from the browser,
         // so Socket.IO needs its own CORS rules; Express's cors() doesn't cover it.
         // credentials: true allows the browser to send the jwt cookie along.
-        cors: { origin: "http://localhost:3000", credentials: true },
+        cors: { origin: process.env.CLIENT_ORIGIN || "http://localhost:3000", credentials: true },
     });
 
     // Engine.IO is the transport layer underneath Socket.IO (polling + WebSocket).
@@ -55,7 +56,6 @@ export const initSocket = (httpServer) => {
 
         if (!userSockets.has(userId)) userSockets.set(userId, new Set());
         userSockets.get(userId).add(socket.id);
-        console.log(`socket connected: ${username} (${userSockets.get(userId).size} open)`);
 
         // io.emit() sends to every connected socket, so everyone's online list refreshes.
         io.emit("onlineUsers", onlineUserIds());
@@ -66,7 +66,6 @@ export const initSocket = (httpServer) => {
             const sockets = userSockets.get(userId);
             sockets?.delete(socket.id);
             if (sockets?.size === 0) userSockets.delete(userId);
-            console.log(`socket disconnected: ${username} (${reason})`);
             io.emit("onlineUsers", onlineUserIds());
         });
     });

@@ -24,4 +24,14 @@ dist-ssr
 *.sln
 *.sw?
 .vs
+
+# Environment files hold secrets. Only the .env.example templates are committed.
 .env
+.env.*
+!.env.example
+
+# Test output
+coverage
+test-results
+playwright-report
+frontend/dist-e2e
