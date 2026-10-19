@@ -50,6 +50,18 @@ describe("messages", () => {
     expect(conversations[0].messages).toHaveLength(2);
   });
 
+  test("BI-31: two first messages sent at the same moment share one conversation", async () => {
+    await Conversation.init(); // the unique index on participantsKey must exist first
+    const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+
+    // Both requests look for a conversation before either has created one.
+    await Promise.all([send(ann, bob, "hi").expect(201), send(bob, ann, "hey").expect(201)]);
+
+    const conversations = await Conversation.find();
+    expect(conversations).toHaveLength(1);
+    expect(conversations[0].messages).toHaveLength(2);
+  });
+
   test("BI-12: fetching a chat returns messages from both sides, oldest first", async () => {
     const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
     await send(ann, bob, "one").expect(201);

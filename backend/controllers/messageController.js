@@ -9,15 +9,14 @@ export const sendMessage = async (req, res) => {
         const {id: receiverId} = req.params
         const senderId = req.user._id
 
-        let conversation = await Conversation.findOne( {
-            participants : { $all : [senderId, receiverId]}
-        })
-
-        if(!conversation) {
-            conversation = await Conversation.create({
-                participants : [senderId, receiverId]
-            })
-        }
+        // Find the pair's conversation, or create it, in one atomic step. A separate
+        // findOne + create let two simultaneous first messages create two conversations.
+        const conversation = await Conversation.findOneAndUpdate(
+            { participantsKey : Conversation.keyFor(senderId, receiverId) },
+            // Only applied when this call creates the conversation
+            { $setOnInsert : { participants : [senderId, receiverId] } },
+            { upsert : true, new : true }
+        )
 
         const newMessage = new Message({
             senderId,
@@ -59,7 +58,7 @@ export const getMessages = async (req, res) => {
         const senderId = req.user._id
 
         const conversation = await Conversation.findOne({
-            participants : { $all : [senderId, usertoChatId]}
+            participantsKey : Conversation.keyFor(senderId, usertoChatId)
         }).populate("messages")
 
         if(!conversation) {
