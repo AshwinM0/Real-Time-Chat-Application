@@ -7,13 +7,8 @@ const conversationSchema = new mongoose.Schema( {
             ref : 'User'
         }
     ],
-    messages : [
-        {
-            type : mongoose.Schema.Types.ObjectId,
-            ref : 'Message',
-            default : []
-        }
-    ],
+    // There is deliberately no list of messages here: each message stores its
+    // conversationId instead (see messageModel.js).
     // The two user ids, sorted (see keyFor below). The unique index is what stops
     // two conversations for the same pair when both users send a first message
     // at the same moment: MongoDB rejects the second one.

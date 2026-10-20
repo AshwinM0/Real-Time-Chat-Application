@@ -27,6 +27,43 @@ describe("addMessage", () => {
   });
 });
 
+describe("FU-53: mergeMessages", () => {
+  const at = (id, second) => ({ ...fromBob(id), createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, second)).toISOString() });
+
+  test("adds a page in time order, around what's already shown, skipping duplicates", () => {
+    store().setSelectedConversation(BOB);
+    store().mergeMessages("bob", [at("m3", 3), at("m4", 4)]); // the newest page
+    store().addMessage(at("m5", 5)); // a live message
+    store().mergeMessages("bob", [at("m1", 1), at("m2", 2), at("m3", 3)]); // an older page, overlapping
+
+    expect(store().messages.map((m) => m._id)).toEqual(["m1", "m2", "m3", "m4", "m5"]);
+  });
+
+  test("messages saved in the same millisecond are ordered by id", () => {
+    store().setSelectedConversation(BOB);
+    store().mergeMessages("bob", [at("m2", 1), at("m1", 1)]);
+    expect(store().messages.map((m) => m._id)).toEqual(["m1", "m2"]);
+  });
+
+  test("a page for a chat that's no longer open is dropped, without changing state", () => {
+    store().setSelectedConversation({ _id: "carol" });
+    const before = useConversation.getState();
+    store().mergeMessages("bob", [at("m1", 1)]);
+    expect(useConversation.getState()).toBe(before);
+  });
+
+  test("opening another chat empties the list; reopening the same chat keeps it", () => {
+    store().setSelectedConversation(BOB);
+    store().mergeMessages("bob", [at("m1", 1)]);
+
+    store().setSelectedConversation(BOB);
+    expect(store().messages).toHaveLength(1);
+
+    store().setSelectedConversation({ _id: "carol" });
+    expect(store().messages).toEqual([]);
+  });
+});
+
 describe("unread counts", () => {
   test("FU-4: counts each unread message", () => {
     store().incrementUnread("bob");

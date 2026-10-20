@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Messages from "../Messages";
 import Message from "../Message";
@@ -41,6 +41,43 @@ describe("FU-47: Messages", () => {
     useGetMessages.mockReturnValueOnce({ loading: false, messages: [message(), message({ _id: "m2", message: "again" })] });
     renderWithProviders(<Messages />);
     expect(screen.getAllByTestId("message").map((m) => m.textContent.trim())).toEqual(["hello", "again"]);
+  });
+});
+
+describe("FU-59: Messages loads older history when scrolled to the top", () => {
+  // jsdom has no layout, so the list's scrollTop is always 0: every scroll is "at the top".
+  const history = { loading: false, messages: [message()], loadingOlder: false };
+  const scrollList = () => fireEvent.scroll(screen.getByTestId("message-list"));
+
+  test("asks for older messages when there are some", () => {
+    const loadOlder = jest.fn();
+    useGetMessages.mockReturnValueOnce({ ...history, hasOlder: true, loadOlder });
+    renderWithProviders(<Messages />);
+
+    scrollList();
+
+    expect(loadOlder).toHaveBeenCalledTimes(1);
+  });
+
+  test("doesn't ask at the start of the chat", () => {
+    const loadOlder = jest.fn();
+    useGetMessages.mockReturnValueOnce({ ...history, hasOlder: false, loadOlder });
+    renderWithProviders(<Messages />);
+
+    scrollList();
+
+    expect(loadOlder).not.toHaveBeenCalled();
+  });
+
+  test("doesn't ask again while a page is loading, and shows a spinner meanwhile", () => {
+    const loadOlder = jest.fn();
+    useGetMessages.mockReturnValueOnce({ ...history, hasOlder: true, loadingOlder: true, loadOlder });
+    renderWithProviders(<Messages />);
+
+    scrollList();
+
+    expect(loadOlder).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Loading older messages")).toBeInTheDocument();
   });
 });
 

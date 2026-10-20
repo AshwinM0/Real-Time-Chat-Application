@@ -4,7 +4,7 @@ import { mockApi, blockSockets, seedUser, ME, BOB } from "./mockApi.mjs";
 test("FM-6: pressing Enter twice while a message is sending sends it once", async ({ page }) => {
   await seedUser(page, ME);
   await mockApi(page, "/api/users", { json: [BOB] });
-  await mockApi(page, "/api/messages/bob", { json: [] });
+  await mockApi(page, "/api/messages/bob*", { json: [] }); // * also matches ?limit=50
   // A slow answer keeps the first request in flight while Enter is pressed again.
   await mockApi(page, "/api/messages/send/bob", {
     status: 201,
