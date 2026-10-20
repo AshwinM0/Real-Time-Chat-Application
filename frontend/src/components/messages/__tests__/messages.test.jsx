@@ -1,4 +1,4 @@
-import { act, screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Messages from "../Messages";
 import Message from "../Message";
@@ -119,5 +119,32 @@ describe("FU-50: MessageInput", () => {
 
     expect(sendMessage).toHaveBeenCalledWith("hello");
     expect(input).toHaveValue("");
+  });
+});
+
+describe("FU-52: MessageInput while a message is sending", () => {
+  // The real hook, so loading follows the request instead of a canned value.
+  beforeEach(() => useSendMessage.mockImplementation(jest.requireActual("../../../hooks/useSendMessage").default));
+  afterEach(() => useSendMessage.mockReset());
+
+  test("more Enters and clicks don't send it again, and the button comes back once it's sent", async () => {
+    useConversation.getState().setSelectedConversation(BOB);
+    let respond;
+    fetch.mockReturnValueOnce(new Promise((resolve) => { respond = resolve; }));
+    const user = userEvent.setup();
+    renderWithProviders(<MessageInput />);
+    const input = screen.getByPlaceholderText("Send a Message");
+    const button = screen.getByRole("button", { name: "Send message" });
+
+    await user.type(input, "hello{Enter}");
+    await user.keyboard("{Enter}");
+    await user.click(button);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(button).toBeDisabled();
+
+    await act(async () => respond(jsonResponse(message({ senderId: "me", receiverId: "u2" }), 201)));
+    await waitFor(() => expect(input).toHaveValue(""));
+    expect(button).toBeEnabled();
   });
 });
