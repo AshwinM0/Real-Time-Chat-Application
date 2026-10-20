@@ -61,6 +61,8 @@ cp frontend/.env.example frontend/.env   # optional: only to change where the fr
 | `NODE_ENV` | `.env` | No | `development` | Set to `production` when deploying. Otherwise error responses include stack traces and server file paths. |
 | `VITE_API_URL` | `frontend/.env` | No | `http://localhost:5000` | Where the frontend finds the backend. Read when Vite starts or builds. |
 
+The server checks the three required variables when it starts and stops with a message naming any that are missing. It also stops if it can't connect to MongoDB.
+
 To generate a strong `JWT_SECRET`:
 
 ```shell

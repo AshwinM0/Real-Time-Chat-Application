@@ -8,6 +8,16 @@ import { initSocket } from "./socket/socket.js"
 
 dotenv.config()
 
+// Stop now, with a clear message, if a required variable is missing. Otherwise the
+// server starts and fails later in confusing ways: without JWT_SECRET every login
+// fails, without MONGO_DB_URI every request waits 10 seconds and errors, and without
+// PORT it listens on a random port the frontend can't find.
+const missing = ["PORT", "MONGO_DB_URI", "JWT_SECRET"].filter((name) => !process.env[name])
+if(missing.length) {
+    console.error("Missing environment variables: " + missing.join(", ") + ". See .env.example.")
+    process.exit(1)
+}
+
 const PORT = process.env.PORT
 
 

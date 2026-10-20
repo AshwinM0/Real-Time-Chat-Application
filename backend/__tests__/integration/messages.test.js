@@ -100,28 +100,28 @@ describe("messages", () => {
   });
 });
 
-describe("history pages", () => {
-  // Saves `count` messages from one user to another straight into the database,
-  // a second apart (or all in the same millisecond), much faster than sending each.
-  // Returns their texts in time order: "m000", "m001", ...
-  const seedHistory = async (from, to, count, { sameTime = false } = {}) => {
-    const conversation = await Conversation.findOneAndUpdate(
-      { participantsKey: Conversation.keyFor(from.id, to.id) },
-      { $setOnInsert: { participants: [from.id, to.id] } },
-      { upsert: true, new: true },
-    );
-    const start = Date.now() - count * 1000;
-    const docs = Array.from({ length: count }, (_, i) => ({
-      conversationId: conversation._id,
-      senderId: new mongoose.Types.ObjectId(from.id),
-      receiverId: new mongoose.Types.ObjectId(to.id),
-      message: `m${String(i).padStart(3, "0")}`,
-      createdAt: new Date(sameTime ? start : start + i * 1000),
-    }));
-    await Message.collection.insertMany(docs);
-    return docs.map((d) => d.message);
-  };
+// Saves `count` messages from one user to another straight into the database,
+// a second apart (or all in the same millisecond), much faster than sending each.
+// Returns their texts in time order: "m000", "m001", ...
+const seedHistory = async (from, to, count, { sameTime = false } = {}) => {
+  const conversation = await Conversation.findOneAndUpdate(
+    { participantsKey: Conversation.keyFor(from.id, to.id) },
+    { $setOnInsert: { participants: [from.id, to.id] } },
+    { upsert: true, new: true },
+  );
+  const start = Date.now() - count * 1000;
+  const docs = Array.from({ length: count }, (_, i) => ({
+    conversationId: conversation._id,
+    senderId: new mongoose.Types.ObjectId(from.id),
+    receiverId: new mongoose.Types.ObjectId(to.id),
+    message: `m${String(i).padStart(3, "0")}`,
+    createdAt: new Date(sameTime ? start : start + i * 1000),
+  }));
+  await Message.collection.insertMany(docs);
+  return docs.map((d) => d.message);
+};
 
+describe("history pages", () => {
   const history = (user, other, query = {}) =>
     request(server.url).get(`/api/messages/${other.id}`).query(query).set("Cookie", user.cookie);
 
@@ -194,5 +194,45 @@ describe("history pages", () => {
     await Message.init();
     expect(await Message.collection.indexes())
       .toContainEqual(expect.objectContaining({ key: { conversationId: 1, createdAt: -1, _id: -1 } }));
+  });
+});
+
+describe("unread counts", () => {
+  const unread = async (user) =>
+    (await request(server.url).get("/api/messages/unread").set("Cookie", user.cookie).expect(200)).body;
+  const markRead = (user, other) =>
+    request(server.url).post(`/api/messages/${other.id}/read`).set("Cookie", user.cookie).expect(204);
+
+  test("BI-44: counts what each person sent since the chat was last opened, never your own messages", async () => {
+    const [ann, bob, cat] = await Promise.all(["ann", "bob", "cat"].map((n) => signUp(server, n)));
+    // Bob is nowhere near the app: nothing is pushed to him, but it's all saved.
+    await send(ann, bob, "one").expect(201);
+    await send(ann, bob, "two").expect(201);
+    await send(cat, bob, "hey").expect(201);
+    await send(bob, ann, "from bob").expect(201);
+
+    expect(await unread(bob)).toEqual({ [ann.id]: 2, [cat.id]: 1 });
+    expect(await unread(ann)).toEqual({ [bob.id]: 1 });
+
+    await markRead(bob, ann);
+    expect(await unread(bob)).toEqual({ [cat.id]: 1 });
+
+    await send(ann, bob, "three").expect(201);
+    expect(await unread(bob)).toEqual({ [ann.id]: 1, [cat.id]: 1 });
+  });
+
+  test("BI-45: counting stops at 100, and users' conversations are indexed", async () => {
+    const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+    await seedHistory(ann, bob, 120);
+
+    expect(await unread(bob)).toEqual({ [ann.id]: 100 });
+    expect(await Conversation.collection.indexes())
+      .toContainEqual(expect.objectContaining({ key: { participants: 1 } }));
+  });
+
+  test("BI-46: both need a login cookie", async () => {
+    const bob = await signUp(server, "bob");
+    await request(server.url).get("/api/messages/unread").expect(401);
+    await request(server.url).post(`/api/messages/${bob.id}/read`).expect(401);
   });
 });

@@ -124,3 +124,65 @@ export const getMessages = async (req, res) => {
     }
 }
 
+
+// POST /api/messages/:id/read: the caller has the chat with :id open, so every
+// message in it so far is read. The frontend calls this once the chat's messages
+// have loaded, and again whenever a new message from the other user appears in it.
+export const markRead = async (req, res) => {
+    try {
+        const me = req.user._id.toString()
+
+        await Conversation.updateOne(
+            { participantsKey : Conversation.keyFor(me, req.params.id) },
+            { $set : { [`lastReadAt.${me}`] : new Date() } }
+        )
+
+        res.status(204).end()
+
+    } catch(e) {
+        console.log("Error from message Controller markRead " + e.message)
+        res.status(500).json({error : "Internal Server Error"})
+    }
+}
+
+
+// Counting stops here, so a chat that was never opened costs no more than any
+// other. The sidebar shows "99+" from 100.
+const UNREAD_CAP = 100
+
+// GET /api/messages/unread: for each of the caller's chats with unread messages,
+// the other user's id and how many messages they sent since the caller last had
+// that chat open. Coming from the server, the counts survive reloads and include
+// messages that arrived while the caller was offline.
+export const getUnreadCounts = async (req, res) => {
+    try {
+        const me = req.user._id
+
+        const conversations = await Conversation.find({ participants : me })
+            .select("participants lastReadAt")
+            .lean()
+
+        const counts = {}
+        await Promise.all(conversations.map(async (conversation) => {
+            const lastRead = conversation.lastReadAt?.[me.toString()]
+            // Never opened: every message they sent counts.
+            const count = await Message.countDocuments({
+                conversationId : conversation._id,
+                receiverId : me,
+                ...(lastRead && { createdAt : { $gt : lastRead } }),
+            }).limit(UNREAD_CAP)
+
+            if(count > 0) {
+                const other = conversation.participants.find((id) => !id.equals(me)) ?? me
+                counts[other.toString()] = count
+            }
+        }))
+
+        res.status(200).json(counts)
+
+    } catch(e) {
+        console.log("Error from message Controller getUnreadCounts " + e.message)
+        res.status(500).json({error : "Internal Server Error"})
+    }
+}
+

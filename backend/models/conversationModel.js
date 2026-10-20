@@ -16,8 +16,19 @@ const conversationSchema = new mongoose.Schema( {
         type : String,
         required : true,
         unique : true
+    },
+    // When each participant last had this chat open, by user id. Messages sent to
+    // them after that are unread (see getUnreadCounts), so unread counts survive
+    // reloads and include messages that arrived while they were offline.
+    lastReadAt : {
+        type : Map,
+        of : Date,
+        default : {}
     }
 }, {timestamps: true})
+
+// Finding a user's conversations, to count their unread messages.
+conversationSchema.index({ participants : 1 })
 
 // Sorting makes Alice→Bob and Bob→Alice produce the same key. Going through
 // ObjectId normalises the ids, so an id typed in upper case can't produce a second key,

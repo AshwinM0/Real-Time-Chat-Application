@@ -71,6 +71,15 @@ describe("unread counts", () => {
     expect(store().unread).toEqual({ bob: 2 });
   });
 
+  test("FU-60: the server's counts replace the local ones, except the open chat stays at 0", () => {
+    store().incrementUnread("carol");
+    store().setSelectedConversation(BOB);
+
+    store().setUnread({ bob: 4, dan: 2 });
+
+    expect(store().unread).toEqual({ bob: 0, dan: 2 });
+  });
+
   test("FU-5: opening that chat clears its count; closing all chats doesn't", () => {
     store().incrementUnread("bob");
     store().setSelectedConversation(null);

@@ -32,7 +32,12 @@ const Conversation = ({conversation, lastIdx}) => {
         <div className="flex flex-col flex-1">
           <div className="flex gap-3 justify-between">
             <p className="font-bold text-gray-200">{conversation.fullName}</p>
-            {unreadCount > 0 && <span className="badge badge-primary badge-sm" aria-label={`${unreadCount} unread messages`}>{unreadCount}</span>}
+            {/* The server stops counting at 100, so anything past 99 shows as 99+ */}
+            {unreadCount > 0 && (
+              <span className="badge badge-primary badge-sm" aria-label={`${unreadCount > 99 ? "More than 99" : unreadCount} unread messages`}>
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </div>
         </div>
       </button>

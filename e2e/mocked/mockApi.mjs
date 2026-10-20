@@ -20,9 +20,14 @@ export async function mockApi(page, path, { status = 200, json, delayMs = 0 } = 
 // No socket at all: every Socket.IO request fails, as if a proxy blocked them.
 export const blockSockets = (page) => page.route(`${API}/socket.io/**`, (route) => route.abort());
 
-// Starts the page as if this user had logged in earlier.
-export const seedUser = (page, user) =>
-  page.addInitScript((u) => localStorage.setItem("chat-user", JSON.stringify(u)), user);
+// Starts the page as if this user had logged in earlier. A logged-in page also loads
+// the unread counts and marks the open chat as read, so those answer "nothing unread"
+// and "done". A test can still mock them itself: the route added last wins.
+export const seedUser = async (page, user) => {
+  await page.addInitScript((u) => localStorage.setItem("chat-user", JSON.stringify(u)), user);
+  await mockApi(page, "/api/messages/unread", { json: {} });
+  await mockApi(page, "/api/messages/*/read", { status: 204 });
+};
 
 export const ME = { _id: "me", fullName: "Mock Me", username: "me", profilePic: "" };
 export const BOB = { _id: "bob", fullName: "Mock Bob", username: "bob", profilePic: "" };

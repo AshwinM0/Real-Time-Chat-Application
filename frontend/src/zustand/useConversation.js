@@ -19,11 +19,19 @@ const useConversation = create((set) => ({
     })),
 
     // Unread counts per user id, for messages that arrived while their chat was closed.
-    // Kept in memory only: they reset on reload (persisting them needs a schema change).
+    // Loaded from the server (see useUnreadCounts), which counts the messages sent since
+    // each chat was last open, so they survive reloads and include messages missed
+    // while offline. Live messages add to them in between (useListenMessages).
     unread: {},
     incrementUnread: (userId) => set((state) => ({
         unread: { ...state.unread, [userId]: (state.unread[userId] || 0) + 1 }
     })),
+    // Replaces the counts with the server's. The open chat stays at 0: its messages are
+    // on screen, even if the server hasn't heard that it's been read yet.
+    setUnread: (counts) => set((state) => {
+        const openId = state.selectedConversation?._id
+        return { unread: openId ? { ...counts, [openId]: 0 } : counts }
+    }),
     messages: [],
 
     // Adds a page of the open chat's history: the newest page when it opens, an
