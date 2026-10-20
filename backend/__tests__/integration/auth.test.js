@@ -86,4 +86,27 @@ describe("login and logout", () => {
     expect(jwtCookie(res)).toMatch(/^jwt=;/);
     expect(jwtCookie(res)).toMatch(/Max-Age=0/i);
   });
+
+  test("BI-32: after logout, a copy of the old cookie is refused", async () => {
+    const ann = await signUp(server, "ann");
+    await request(server.url).get("/api/users").set("Cookie", ann.cookie).expect(200);
+
+    await request(server.url).post("/api/auth/logout").set("Cookie", ann.cookie).expect(200);
+    // Logging out again with the same cookie is harmless.
+    await request(server.url).post("/api/auth/logout").set("Cookie", ann.cookie).expect(200);
+
+    const res = await request(server.url).get("/api/users").set("Cookie", ann.cookie).expect(401);
+    expect(res.body.error).toBe("Unauthorized - Token revoked");
+  });
+
+  test("BI-33: logging out ends only that login, not the user's other ones", async () => {
+    const ann = await signUp(server, "ann");
+    const phoneLogin = await request(server.url).post("/api/auth/login")
+      .send({ username: ann.username, password: "secret123" }).expect(200);
+    const phoneCookie = jwtCookie(phoneLogin).split(";")[0];
+
+    await request(server.url).post("/api/auth/logout").set("Cookie", ann.cookie).expect(200);
+
+    await request(server.url).get("/api/users").set("Cookie", phoneCookie).expect(200);
+  });
 });

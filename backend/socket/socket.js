@@ -6,6 +6,11 @@ import getUserFromToken from "../utils/getUserFromToken.js";
 // backend modules (e.g. messageController) reach it through getIO().
 let io;
 
+// Every socket also joins a room for the login token it connected with. Tabs in
+// one browser share the cookie, so they share this room, and so does anyone using
+// a copy of the cookie. A different login (another device) has a different token.
+const sessionRoom = (jti) => `session:${jti}`;
+
 export const initSocket = (httpServer) => {
     // Presence bookkeeping: userId -> Set of socket ids.
     // One user can hold several sockets at once (two tabs, laptop + phone).
@@ -31,13 +36,14 @@ export const initSocket = (httpServer) => {
     // receives a "connect_error" event whose err.message is msg.
     io.use(async (socket, next) => {
         try {
-            const { user } = await getUserFromToken(socket.request.cookies?.jwt);
+            const { user, jti } = await getUserFromToken(socket.request.cookies?.jwt);
             if (!user) return next(new Error("Unauthorized"));
 
             // socket.data is per-connection storage. This userId is trustworthy because
             // it comes from a verified token, never from anything the client claims.
             socket.data.userId = user._id.toString();
             socket.data.username = user.username;
+            socket.data.jti = jti;
             next();
         } catch (e) {
             console.log("Error in socket auth middleware: " + e.message);
@@ -47,12 +53,14 @@ export const initSocket = (httpServer) => {
 
     // "connection" fires once for every socket that got past the middleware.
     io.on("connection", (socket) => {
-        const { userId, username } = socket.data;
+        const { userId, username, jti } = socket.data;
 
         // A room is a server-side, named group of sockets. Putting each of a user's
         // sockets into a room named after their id means io.to(userId).emit(...)
         // reaches every tab and device they have open.
         socket.join(userId);
+        // So logging out can close exactly this login's sockets (see disconnectSession).
+        socket.join(sessionRoom(jti));
 
         if (!userSockets.has(userId)) userSockets.set(userId, new Set());
         userSockets.get(userId).add(socket.id);
@@ -79,3 +87,9 @@ export const getIO = () => {
     if (!io) throw new Error("Socket.IO has not been initialised");
     return io;
 };
+
+// Closes every socket opened with one login token, once it has been revoked.
+// Sockets are only authenticated when they connect, so without this they would
+// keep receiving messages after logout. The client sees "io server disconnect"
+// and doesn't reconnect. If it tried, the revoked token would be refused.
+export const disconnectSession = (jti) => getIO().in(sessionRoom(jti)).disconnectSockets();

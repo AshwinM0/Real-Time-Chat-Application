@@ -5,13 +5,18 @@ import jwt from "jsonwebtoken";
 const select = jest.fn();
 const findById = jest.fn(() => ({ select }));
 jest.unstable_mockModule("../../models/userModel.js", () => ({ default: { findById } }));
+const isRevoked = jest.fn();
+jest.unstable_mockModule("../../stores/revokedTokenStore.js", () => ({ default: { isRevoked } }));
 const { default: getUserFromToken } = await import("../../utils/getUserFromToken.js");
 
-const sign = (payload, secret = process.env.JWT_SECRET, opts = {}) => jwt.sign(payload, secret, opts);
+// Real tokens carry an id (jwtid), which logout uses to revoke them.
+const sign = (payload, secret = process.env.JWT_SECRET, opts = { jwtid: "token-1" }) => jwt.sign(payload, secret, opts);
 
 beforeEach(() => {
   findById.mockClear();
   select.mockReset();
+  isRevoked.mockReset();
+  isRevoked.mockResolvedValue(false);
 });
 
 test("BU-1: no token is rejected without touching the database", async () => {
@@ -41,6 +46,18 @@ test("BU-5: a valid token for a user who no longer exists", async () => {
 test("BU-6: a valid token for an existing user returns them, without the password", async () => {
   const user = { _id: "u1", username: "ann" };
   select.mockResolvedValue(user);
-  expect(await getUserFromToken(sign({ userId: "u1" }))).toEqual({ user });
+  expect(await getUserFromToken(sign({ userId: "u1" }))).toEqual({ user, jti: "token-1" });
   expect(select).toHaveBeenCalledWith("-password");
+});
+
+test("BU-11: a token without an id, from before logout could revoke tokens, is invalid", async () => {
+  expect(await getUserFromToken(sign({ userId: "u1" }, process.env.JWT_SECRET, {}))).toEqual({ error: "Invalid Token" });
+  expect(findById).not.toHaveBeenCalled();
+});
+
+test("BU-12: a revoked token is refused, even though it's otherwise valid", async () => {
+  select.mockResolvedValue({ _id: "u1", username: "ann" });
+  isRevoked.mockResolvedValue(true);
+  expect(await getUserFromToken(sign({ userId: "u1" }))).toEqual({ error: "Token revoked" });
+  expect(isRevoked).toHaveBeenCalledWith("token-1");
 });
