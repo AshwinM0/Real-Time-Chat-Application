@@ -19,7 +19,7 @@ A one-to-one chat app built in TypeScript with MongoDB, Express, React and Node.
 | Area | Tools |
 |---|---|
 | Language | TypeScript, strict, checked by tsc and typescript-eslint (see [Types](#types)) |
-| Backend | Node.js, Express, Socket.IO, MongoDB with Mongoose, jsonwebtoken, bcryptjs, express-rate-limit, optionally Redis (node-redis) |
+| Backend | Node.js, Express, Socket.IO, MongoDB with Mongoose, zod, jsonwebtoken, bcryptjs, express-rate-limit, optionally Redis (node-redis) |
 | Frontend | React 18, Vite, Zustand, Tailwind CSS with daisyUI, socket.io-client |
 | Tests | Jest, Supertest, mongodb-memory-server, React Testing Library, Playwright |
 | CI | GitHub Actions |
@@ -133,7 +133,7 @@ npx playwright install chromium
 
 The end-to-end tests start their own backend on port 5100 and frontend on port 3100. If either port is busy, for example because the VS Code Playwright extension is holding it, the run stops with an "already used" error.
 
-Tests marked `test.failing` document known bugs, such as missing input validation. They start failing once the bug is fixed, as a reminder to turn them into normal tests.
+A test marked `test.failing` documents a known bug: it passes while the bug exists and starts failing once it's fixed, as a reminder to turn it into a normal test. None are open right now.
 
 GitHub Actions checks the types and lint, and runs all three suites, on every push and pull request.
 
@@ -143,12 +143,9 @@ The code is TypeScript in strict mode, with `noUncheckedIndexedAccess`. tsx (in 
 
 Lint rules keep `any` out of the app's code, though not out of the tests: no `any` or `unknown` written out, no `as` casts, no non-null `!`, and no passing on an `any` that a library returned, such as from `JSON.parse`. Where one is truly needed, the rule is turned off on that line with the reason: a caught error, and the Express error handler's argument, can be any value, so those are `unknown` until checked.
 
-Two kinds of values are trusted rather than checked when they arrive:
+Requests are checked when they arrive. Each handler first parses its body and path with a zod schema from [backend/validation.ts](backend/validation.ts), and the body's type comes from that schema. Input that doesn't fit is a 400 saying what's wrong. A field that should be text has to be text, so a query operator such as `{"$ne": null}` sent as a username never reaches MongoDB.
 
-- **JSON in the frontend.** `readJson` and `parseJson` in [frontend/src/utils/json.ts](frontend/src/utils/json.ts) give API responses, and the user saved in localStorage, the type the caller names. Those types, in [frontend/src/types.ts](frontend/src/types.ts), must match what the backend sends.
-- **Request bodies in the backend.** Each handler declares the body it expects ([backend/types.ts](backend/types.ts)), but nothing validates it yet: the `test.failing` tests BI-4 and BI-15 track that.
-
-A schema library such as zod would turn both into checked types.
+One kind of value is still trusted rather than checked: **JSON in the frontend.** `readJson` and `parseJson` in [frontend/src/utils/json.ts](frontend/src/utils/json.ts) give API responses, and the user saved in localStorage, the type the caller names. Those types, in [frontend/src/types.ts](frontend/src/types.ts), must match what the backend sends. Parsing those with zod schemas too would make the last trusted types checked ones.
 
 ## Project structure
 
@@ -156,7 +153,8 @@ A schema library such as zod would turn both into checked types.
 backend/
   server.ts     entry point: HTTP server, Socket.IO and the MongoDB connection
   app.ts        builds the Express app, shared by server.ts and the tests
-  types.ts      the request and error bodies the API takes and sends
+  validation.ts what the API accepts: zod schemas for request bodies and ids
+  types.ts      the error body every failed request answers with
   socket/       Socket.IO: handshake authentication, presence, rooms
   redis/        the optional Redis connection
   middleware/   login check (protectRoute) and rate limits

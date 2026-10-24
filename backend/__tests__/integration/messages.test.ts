@@ -86,17 +86,40 @@ describe("messages", () => {
     expect(await Message.countDocuments()).toBe(0);
   });
 
-  // Known gap, like BI-4: no input validation, so these are 500s today.
-  describe("BI-15: invalid input should be a 400 (currently 500)", () => {
-    test.failing("empty message", async () => {
+  // Checked before anything else runs (backend/validation.ts), like BI-4.
+  describe("BI-15: invalid input is a 400 that says what's wrong, and saves nothing", () => {
+    test("empty message", async () => {
       const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
-      await send(ann, bob, "").expect(400);
+      const res = await send(ann, bob, "").expect(400);
+      expect(res.body).toEqual({ error: "Message is required" });
+      expect(await Message.countDocuments()).toBe(0);
     });
-    test.failing("malformed receiver id", async () => {
+    test("malformed receiver id", async () => {
       const ann = await signUp(server, "ann");
-      await request(server.url).post("/api/messages/send/not-an-id")
+      const res = await request(server.url).post("/api/messages/send/not-an-id")
         .set("Cookie", ann.cookie).send({ message: "hi" }).expect(400);
+      expect(res.body).toEqual({ error: "That isn't a valid user id" });
+      expect(await Conversation.countDocuments()).toBe(0);
     });
+    test("a message that isn't text, which used to be saved as one", async () => {
+      const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+      const res = await request(server.url).post(`/api/messages/send/${bob.id}`)
+        .set("Cookie", ann.cookie).send({ message: 42 }).expect(400);
+      expect(res.body).toEqual({ error: "Message must be text" });
+      expect(await Message.countDocuments()).toBe(0);
+    });
+  });
+
+  test("BI-71: loading or marking read a chat with a malformed user id is a 400, not a 500", async () => {
+    const ann = await signUp(server, "ann");
+
+    for (const res of [
+      await request(server.url).get("/api/messages/not-an-id").set("Cookie", ann.cookie),
+      await request(server.url).post("/api/messages/not-an-id/read").set("Cookie", ann.cookie),
+    ]) {
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: "That isn't a valid user id" });
+    }
   });
 });
 

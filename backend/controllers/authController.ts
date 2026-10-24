@@ -4,11 +4,12 @@ import type { ParamsDictionary } from "express-serve-static-core"
 import type { Types } from "mongoose"
 import User, { type UserFields } from "../models/userModel.ts"
 import { disconnectSession } from "../socket/socket.ts"
-import type { ErrorBody, LoginBody, SignUpBody } from "../types.ts"
+import type { ErrorBody } from "../types.ts"
 import { errorMessage } from "../utils/errorMessage.ts"
 import generateTokenAndSetCookie from "../utils/generateToken.ts"
 import { loginToken } from "../utils/loginToken.ts"
 import revokeToken from "../utils/revokeToken.ts"
+import { invalid, LoginBody, SignUpBody } from "../validation.ts"
 
 // What signing up and logging in answer with: the user now logged in, which the
 // frontend keeps.
@@ -16,10 +17,14 @@ type LoggedInUser = Pick<UserFields, "fullName" | "username" | "profilePic"> & {
 
 
 //SIGNUP
-export const signUp: RequestHandler<ParamsDictionary, LoggedInUser | ErrorBody, SignUpBody> = async (req, res) => {
+export const signUp: RequestHandler<ParamsDictionary, LoggedInUser | ErrorBody> = async (req, res) => {
 
     try {
-        const { fullName, username, password, confirmPassword, gender} = req.body
+        const input = SignUpBody.safeParse(req.body)
+        if (!input.success) {
+            return res.status(400).json(invalid(input.error))
+        }
+        const { fullName, username, password, confirmPassword, gender} = input.data
 
         if (password!= confirmPassword) {
             return res.status(400).json({error : "Passwords dont match"})
@@ -72,10 +77,14 @@ export const signUp: RequestHandler<ParamsDictionary, LoggedInUser | ErrorBody, 
 
 
 //LOGIN
-export const login: RequestHandler<ParamsDictionary, LoggedInUser | ErrorBody, LoginBody> = async (req, res) => {
+export const login: RequestHandler<ParamsDictionary, LoggedInUser | ErrorBody> = async (req, res) => {
 
     try {
-        const {username, password} = req.body;
+        const input = LoginBody.safeParse(req.body)
+        if (!input.success) {
+            return res.status(400).json(invalid(input.error))
+        }
+        const {username, password} = input.data;
 
         const user = await User.findOne({username})
 

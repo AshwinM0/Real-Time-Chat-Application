@@ -42,20 +42,31 @@ describe("signup", () => {
     expect(res.body.error).toBe("Username already taken");
   });
 
-  // Known gap: the controller doesn't validate input, so Mongoose rejects it later
-  // and the catch turns that into a 500. These pass while the bug exists; when
-  // validation is added they start failing, and should become normal tests.
-  describe("BI-4: invalid input should be a 400 (currently 500)", () => {
-    test.failing("missing full name", async () => {
-      await request(server.url).post("/api/auth/signup").send(validSignup({ fullName: undefined })).expect(400);
+  // The body is checked before anything else runs (backend/validation.ts). Without
+  // that, Mongoose or bcrypt rejected bad input later, and the catch made it a 500.
+  describe("BI-4: invalid input is a 400 that says what's wrong", () => {
+    test("missing full name", async () => {
+      const res = await request(server.url).post("/api/auth/signup").send(validSignup({ fullName: undefined })).expect(400);
+      expect(res.body).toEqual({ error: "Full name is required" });
     });
-    test.failing("missing password", async () => {
-      await request(server.url).post("/api/auth/signup")
+    test("missing password", async () => {
+      const res = await request(server.url).post("/api/auth/signup")
         .send(validSignup({ password: undefined, confirmPassword: undefined })).expect(400);
+      expect(res.body).toEqual({ error: "Password is required" });
     });
-    test.failing("invalid gender", async () => {
-      await request(server.url).post("/api/auth/signup").send(validSignup({ gender: "other" })).expect(400);
+    test("invalid gender", async () => {
+      const res = await request(server.url).post("/api/auth/signup").send(validSignup({ gender: "other" })).expect(400);
+      expect(res.body).toEqual({ error: "Gender must be male or female" });
     });
+  });
+
+  test("BI-69: a password under 6 characters, which only the browser used to refuse, is a 400, and no user is saved", async () => {
+    const body = validSignup({ password: "abc", confirmPassword: "abc" });
+
+    const res = await request(server.url).post("/api/auth/signup").send(body).expect(400);
+
+    expect(res.body).toEqual({ error: "Password must be at least 6 characters" });
+    expect(await User.exists({ username: body.username })).toBeNull();
   });
 });
 
@@ -79,6 +90,21 @@ describe("login and logout", () => {
     const wrong = await request(server.url).post("/api/auth/login")
       .send({ username: user.username, password: "wrong-password" }).expect(400);
     expect(wrong.body.error).toBe("Incorrect password");
+  });
+
+  test("BI-70: a username that isn't text, such as a query operator, is a 400 and never reaches MongoDB", async () => {
+    await signUp(server, "bob");
+
+    // { "$ne": null } matches every user, so without the check this logged in as
+    // whoever MongoDB returned first, given that user's password.
+    const operator = await request(server.url).post("/api/auth/login")
+      .send({ username: { $ne: null }, password: "secret123" }).expect(400);
+    expect(operator.body).toEqual({ error: "Username must be text" });
+    expect(jwtCookie(operator)).toBeUndefined();
+
+    // Without a password, bcrypt used to throw: a 500.
+    const noPassword = await request(server.url).post("/api/auth/login").send({ username: "bob" }).expect(400);
+    expect(noPassword.body).toEqual({ error: "Password is required" });
   });
 
   test("BI-7: logout clears the jwt cookie", async () => {

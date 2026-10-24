@@ -2,8 +2,9 @@ import type { Request } from "express";
 import { rateLimit, type AugmentedRequest, type Options } from "express-rate-limit";
 import type { ParamsDictionary } from "express-serve-static-core";
 import type { RedisClients } from "../redis/client.ts";
-import type { ErrorBody, LoginBody } from "../types.ts";
+import type { ErrorBody } from "../types.ts";
 import { errorMessage } from "../utils/errorMessage.ts";
+import type { LoginBody } from "../validation.ts";
 import { JavaRedisStore } from "./javaRedisRateLimitStore.ts";
 import { loggedInUser } from "./protectRoute.ts";
 

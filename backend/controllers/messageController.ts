@@ -5,17 +5,20 @@ import { loggedInUser } from '../middleware/protectRoute.ts'
 import Conversation from '../models/conversationModel.ts'
 import Message, { type MessageDocument } from '../models/messageModel.ts'
 import { getIO, type MessageSender } from '../socket/socket.ts'
-import type { ErrorBody, SendMessageBody } from '../types.ts'
+import type { ErrorBody } from '../types.ts'
 import { errorMessage } from '../utils/errorMessage.ts'
+import { ChatParams, invalid, SendMessageBody } from '../validation.ts'
 
-// Routes with the other user's id in the path: /send/:id, /:id and /:id/read.
-type WithUser = { id: string }
-
-export const sendMessage: RequestHandler<WithUser, MessageDocument | ErrorBody, SendMessageBody> = async (req, res) => {
+export const sendMessage: RequestHandler<ChatParams, MessageDocument | ErrorBody> = async (req, res) => {
 
     try {
-        const {message} = req.body
-        const {id: receiverId} = req.params
+        const params = ChatParams.safeParse(req.params)
+        if(!params.success) return res.status(400).json(invalid(params.error))
+        const input = SendMessageBody.safeParse(req.body)
+        if(!input.success) return res.status(400).json(invalid(input.error))
+
+        const {message} = input.data
+        const {id: receiverId} = params.data
         const user = loggedInUser(req)
         const senderId = user._id
 
@@ -111,10 +114,13 @@ const readPage = (query: Request["query"]): Page | ErrorBody => {
     return { limit, filter : {}, sort : newestFirst }
 }
 
-export const getMessages: RequestHandler<WithUser, MessageDocument[] | ErrorBody> = async (req, res) => {
+export const getMessages: RequestHandler<ChatParams, MessageDocument[] | ErrorBody> = async (req, res) => {
     try {
 
-        const {id : usertoChatId} = req.params
+        const params = ChatParams.safeParse(req.params)
+        if(!params.success) return res.status(400).json(invalid(params.error))
+
+        const {id : usertoChatId} = params.data
         const senderId = loggedInUser(req)._id
 
         const page = readPage(req.query)
@@ -151,12 +157,15 @@ export const getMessages: RequestHandler<WithUser, MessageDocument[] | ErrorBody
 // POST /api/messages/:id/read: the caller has the chat with :id open, so every
 // message in it so far is read. The frontend calls this once the chat's messages
 // have loaded, and again whenever a new message from the other user appears in it.
-export const markRead: RequestHandler<WithUser, ErrorBody> = async (req, res) => {
+export const markRead: RequestHandler<ChatParams, ErrorBody> = async (req, res) => {
     try {
+        const params = ChatParams.safeParse(req.params)
+        if(!params.success) return res.status(400).json(invalid(params.error))
+
         const me = loggedInUser(req)._id.toString()
 
         await Conversation.updateOne(
-            { participantsKey : Conversation.keyFor(me, req.params.id) },
+            { participantsKey : Conversation.keyFor(me, params.data.id) },
             { $set : { [`lastReadAt.${me}`] : new Date() } }
         )
 
