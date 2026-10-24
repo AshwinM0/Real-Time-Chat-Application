@@ -110,3 +110,11 @@ describe("login and logout", () => {
     await request(server.url).get("/api/users").set("Cookie", phoneCookie).expect(200);
   });
 });
+
+test("BI-64: a body that isn't valid JSON is a 400 with a JSON error, not an HTML page", async () => {
+  const res = await request(server.url).post("/api/auth/login")
+    .set("Content-Type", "application/json").send("{not json").expect(400);
+
+  expect(res.headers["content-type"]).toMatch(/^application\/json/);
+  expect(res.body.error).toEqual(expect.any(String));
+});

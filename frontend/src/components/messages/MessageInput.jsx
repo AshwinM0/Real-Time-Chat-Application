@@ -15,8 +15,9 @@ const MessageInput = () => {
     // below stops both; this check also covers any other way the form is submitted.
     if(!message || loading) return;
 
-    await sendMessage(message)
-    setMessage("")
+    // Only clear it once sent. If sending failed, for example because of sending
+    // too fast, the text stays so the user can send it again.
+    if(await sendMessage(message)) setMessage("")
   }
 
   return (

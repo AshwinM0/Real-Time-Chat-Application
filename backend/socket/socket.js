@@ -11,7 +11,10 @@ let io;
 // a copy of the cookie. A different login (another device) has a different token.
 const sessionRoom = (jti) => `session:${jti}`;
 
-export const initSocket = (httpServer) => {
+// redis: the clients from connectRedis() when REDIS_URL is set. Not used yet: the
+// cross-server adapter and the shared online list will start here with it, which
+// is why this is async.
+export const initSocket = async (httpServer, { redis } = {}) => {
     // Presence bookkeeping: userId -> Set of socket ids.
     // One user can hold several sockets at once (two tabs, laptop + phone).
     // They count as online while at least one of those sockets is connected.

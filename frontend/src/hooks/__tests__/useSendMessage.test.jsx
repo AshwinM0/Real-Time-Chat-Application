@@ -25,6 +25,7 @@ test("FU-17: a message the socket delivered before the HTTP response appears onc
 
   expect(useConversation.getState().messages).toEqual([sent]);
   expect(result.current.loading).toBe(false);
+  await expect(sending).resolves.toBe(true);
   expect(fetch).toHaveBeenCalledWith(
     "http://api.test/api/messages/send/u2",
     expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ message: "hi" }) }),
@@ -49,4 +50,16 @@ test("other errors show a toast and add nothing", async () => {
 
   expect(toast.error).toHaveBeenCalledWith("Internal Server Error");
   expect(useConversation.getState().messages).toEqual([]);
+});
+
+test("FU-66: sending too fast (429) shows when to try again, adds nothing, and reports it unsent", async () => {
+  fetch.mockResolvedValueOnce(jsonResponse({ error: "Too many messages, try again in 8 seconds" }, 429));
+  const { result } = renderHookWithProviders(() => useSendMessage());
+
+  let wasSent;
+  await act(async () => { wasSent = await result.current.sendMessage("hi"); });
+
+  expect(toast.error).toHaveBeenCalledWith("Too many messages, try again in 8 seconds", { id: "rate-limit" });
+  expect(useConversation.getState().messages).toEqual([]);
+  expect(wasSent).toBeFalsy();
 });

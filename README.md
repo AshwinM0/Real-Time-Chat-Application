@@ -12,12 +12,13 @@ A one-to-one chat app built with MongoDB, Express, React and Node.js, using Sock
 - **Tabs stay in sync**: a message you send shows up once in every tab you have open.
 - **Catch-up after a dropped connection**: when the socket reconnects, the open chat reloads what it missed.
 - **Cookie-based authentication**: a JWT in an `httpOnly` cookie, checked on protected API routes and on the socket handshake. When the session expires, you're sent back to the login page.
+- **Rate limits** on failed logins, sign-ups and sending, so passwords can't be guessed at speed and nobody can flood a chat.
 
 ## Tech stack
 
 | Area | Tools |
 |---|---|
-| Backend | Node.js, Express, Socket.IO, MongoDB with Mongoose, jsonwebtoken, bcryptjs |
+| Backend | Node.js, Express, Socket.IO, MongoDB with Mongoose, jsonwebtoken, bcryptjs, express-rate-limit, optionally Redis (node-redis) |
 | Frontend | React 18, Vite, Zustand, Tailwind CSS with daisyUI, socket.io-client |
 | Tests | Jest, Supertest, mongodb-memory-server, React Testing Library, Playwright |
 | CI | GitHub Actions |
@@ -28,6 +29,7 @@ A one-to-one chat app built with MongoDB, Express, React and Node.js, using Sock
 - **Sockets for everything live.** After saving a message, the server pushes it to the receiver and to all of the sender's tabs. Each socket joins a room named after its user's id, so one emit reaches every tab and device that user has open.
 - **One identity check for both.** The socket handshake carries the same `jwt` cookie as API requests, so the server knows who each socket belongs to without trusting anything the client says.
 - **Presence lives in memory.** The server keeps a map from user id to open sockets and broadcasts the online list whenever someone connects or disconnects. Because the map lives in one process, this design assumes a single server instance.
+- **Rate limits count per client.** Failed logins are limited per address and per username, sign-ups per address, and sending per user. Over a limit, the API answers `429` with a message saying when to try again, which the frontend shows. The counts live in memory, or in Redis when `REDIS_URL` is set, so that several servers would share them. If Redis stops answering, logins are refused until it's back, while sign-ups and messages go through without a limit.
 
 ## Getting started
 
@@ -59,9 +61,19 @@ cp frontend/.env.example frontend/.env   # optional: only to change where the fr
 | `PORT` | `.env` | Yes | | Port for the API and Socket.IO, for example `5000` |
 | `CLIENT_ORIGIN` | `.env` | No | `http://localhost:3000` | The frontend's origin, the only one allowed to call the API with cookies |
 | `NODE_ENV` | `.env` | No | `development` | Set to `production` when deploying. Otherwise error responses include stack traces and server file paths. |
+| `REDIS_URL` | `.env` | No | | Redis connection string, for example `redis://:<password>@127.0.0.1:6379`, or `rediss://…` for TLS. Rate-limit counts are then kept in Redis and shared by every backend server; without it, they're kept in memory. Works with real Redis or [redis-in-java](https://github.com/AshwinM0/redis-in-java). Write `127.0.0.1`: `localhost` may resolve to IPv6, where redis-in-java doesn't listen. |
+| `REDIS_TLS_CA` | `.env` | No | | With a `rediss://` URL: a PEM file with the authority that signed the Redis server's certificate, when Node doesn't already trust it, such as a self-signed one. The certificate must name the host in the URL; for `127.0.0.1`, as an IP address. |
+| `REDIS_TLS_CERT`, `REDIS_TLS_KEY` | `.env` | No | | With a `rediss://` URL: the backend's own certificate and key (PEM), for a Redis server that requires client certificates. Set both or neither. |
+| `TRUST_PROXY` | `.env` | No | | How many proxies, such as a load balancer, sit in front of the backend, for example `1`. Then rate limits see each client's address instead of the proxy's. Never set more than there are: clients could fake their address. |
+| `RATE_LIMIT_LOGIN_PER_IP` | `.env` | No | `20` | Failed logins allowed per address in 15 minutes |
+| `RATE_LIMIT_LOGIN_PER_USER` | `.env` | No | `5` | Failed logins allowed per username in 15 minutes, from any address |
+| `RATE_LIMIT_SIGNUP_PER_IP` | `.env` | No | `10` | Sign-ups allowed per address in an hour |
+| `RATE_LIMIT_SEND_PER_USER` | `.env` | No | `20` | Messages a user can send in 10 seconds |
 | `VITE_API_URL` | `frontend/.env` | No | `http://localhost:5000` | Where the frontend finds the backend. Read when Vite starts or builds. |
 
-The server checks the three required variables when it starts and stops with a message naming any that are missing. It also stops if it can't connect to MongoDB.
+The server checks the three required variables when it starts and stops with a message naming any that are missing. It also stops if it can't connect to MongoDB or, when `REDIS_URL` is set, to Redis within 5 seconds, or if the `REDIS_TLS_*` settings don't fit the URL.
+
+When Redis closes a connection, the backend reconnects by itself and logs `Redis closed the connection; reconnecting`. redis-in-java does this on purpose when `REDIS_MAX_CONNECTION_AGE` is set. A rate-limit check caught by the close is sent once more, so no request fails because of it.
 
 To generate a strong `JWT_SECRET`:
 
@@ -105,7 +117,7 @@ Set `VITE_API_URL` before building, and set `CLIENT_ORIGIN` on the backend to th
 | `npm run test:e2e` | Playwright tests in Chromium against the real backend and a production build of the frontend, plus a few with the API mocked |
 | `npm test` | All three, in that order |
 
-The tests never use your database or your secrets: they set their own variables and run MongoDB in memory. The first run downloads a MongoDB binary, which can take a minute.
+The tests never use your database, your Redis or your secrets: they set their own variables, raise the rate limits, and run MongoDB in memory. The first run downloads a MongoDB binary, which can take a minute.
 
 For coverage reports, run `npm run test:backend -- --coverage` or `npm --prefix frontend test -- --coverage`.
 
@@ -128,7 +140,9 @@ backend/
   server.js     entry point: HTTP server, Socket.IO and the MongoDB connection
   app.js        builds the Express app, shared by server.js and the tests
   socket/       Socket.IO: handshake authentication, presence, rooms
-  controllers/, routes/, models/, middleware/, db/, utils/
+  redis/        the optional Redis connection
+  middleware/   login check (protectRoute) and rate limits
+  controllers/, routes/, models/, db/, utils/
   __tests__/    unit and integration tests (helpers in test/)
 frontend/
   src/

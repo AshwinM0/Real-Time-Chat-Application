@@ -6,6 +6,9 @@ const mongod = await MongoMemoryServer.create();
 // server.js calls dotenv.config(), which never overrides variables that are
 // already set, so this wins over any MONGO_DB_URI in a developer's .env.
 process.env.MONGO_DB_URI = mongod.getUri("chat_e2e");
+// Likewise, an empty REDIS_URL keeps one in .env from applying: the tests run with
+// everything in memory, without Java.
+process.env.REDIS_URL = "";
 
 const stop = async () => {
   await mongod.stop();

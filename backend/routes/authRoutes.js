@@ -2,12 +2,18 @@ import express from "express";
 import { login, logout, signUp } from "../controllers/authController.js";
 
 
-const router = express.Router()
+// limits: the rate limiters from createRateLimits().
+const authRoutes = ({ loginByIp, loginByUser, signupByIp }) => {
+    const router = express.Router()
 
-router.post("/login", login)
+    // Per address first, so a request it refuses doesn't count against the username.
+    router.post("/login", loginByIp, loginByUser, login)
 
-router.post('/signup', signUp)
+    router.post('/signup', signupByIp, signUp)
 
-router.post('/logout', logout)
+    router.post('/logout', logout)
 
-export default router;
+    return router
+}
+
+export default authRoutes;

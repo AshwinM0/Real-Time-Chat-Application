@@ -145,7 +145,7 @@ describe("FU-50: MessageInput", () => {
   });
 
   test("submitting text sends it and clears the input", async () => {
-    const sendMessage = jest.fn().mockResolvedValue();
+    const sendMessage = jest.fn().mockResolvedValue(true);
     useSendMessage.mockReturnValue({ loading: false, sendMessage });
     const user = userEvent.setup();
     renderWithProviders(<MessageInput />);
@@ -156,6 +156,19 @@ describe("FU-50: MessageInput", () => {
 
     expect(sendMessage).toHaveBeenCalledWith("hello");
     expect(input).toHaveValue("");
+  });
+
+  test("text that wasn't sent, for example after sending too fast, stays in the input", async () => {
+    const sendMessage = jest.fn().mockResolvedValue(undefined);
+    useSendMessage.mockReturnValue({ loading: false, sendMessage });
+    const user = userEvent.setup();
+    renderWithProviders(<MessageInput />);
+    const input = screen.getByPlaceholderText("Send a Message");
+
+    await user.type(input, "hello{Enter}");
+
+    expect(sendMessage).toHaveBeenCalledWith("hello");
+    expect(input).toHaveValue("hello");
   });
 });
 

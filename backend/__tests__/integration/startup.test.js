@@ -13,7 +13,7 @@ beforeAll(() => { emptyDir = mkdtempSync(path.join(tmpdir(), "chat-startup-")); 
 afterAll(() => rmSync(emptyDir, { recursive: true, force: true }));
 
 const startServer = (appEnv) => {
-  const { PORT, MONGO_DB_URI, JWT_SECRET, ...osEnv } = process.env;
+  const { PORT, MONGO_DB_URI, JWT_SECRET, REDIS_URL, REDIS_TLS_CA, REDIS_TLS_CERT, REDIS_TLS_KEY, ...osEnv } = process.env;
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [serverJs], { cwd: emptyDir, env: { ...osEnv, ...appEnv } });
     let output = "";
@@ -40,4 +40,32 @@ test("BI-48: the server stops, saying why, when it can't reach MongoDB", async (
 
   expect(code).toBe(1);
   expect(output).toContain("Could not connect to MongoDB");
+}, 20_000);
+
+test("BI-49: with REDIS_URL set, the server stops, saying why, when it can't reach Redis", async () => {
+  const { code, output } = await startServer({
+    PORT: "0",
+    JWT_SECRET: "set",
+    MONGO_DB_URI: "mongodb://127.0.0.1:1/chat?serverSelectionTimeoutMS=500",
+    // Nothing listens on port 1. Redis comes first, so MongoDB is never tried.
+    REDIS_URL: "redis://127.0.0.1:1",
+  });
+
+  expect(code).toBe(1);
+  expect(output).toMatch(/Could not connect to Redis: .*\(gave up after 5 s\)/);
+  expect(output).not.toContain("MongoDB");
+}, 20_000);
+
+test("BI-67: the server won't start with TLS files but a redis:// URL, which would send them nowhere", async () => {
+  const { code, output } = await startServer({
+    PORT: "0",
+    JWT_SECRET: "set",
+    MONGO_DB_URI: "mongodb://127.0.0.1:1/chat?serverSelectionTimeoutMS=500",
+    REDIS_URL: "redis://127.0.0.1:1",
+    // Checked before the file is read, so it needn't exist.
+    REDIS_TLS_CA: path.join(emptyDir, "ca.pem"),
+  });
+
+  expect(code).toBe(1);
+  expect(output).toContain("Could not connect to Redis: REDIS_TLS_* is set, but REDIS_URL doesn't start with rediss://");
 }, 20_000);

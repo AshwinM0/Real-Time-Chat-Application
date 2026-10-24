@@ -45,3 +45,14 @@ test("a server error is shown, and nobody is logged in", async () => {
   expect(result.current.auth.authUser).toBeNull();
   expect(result.current.loading).toBe(false);
 });
+
+test("FU-65: too many sign-ups (429) shows when to try again, and nobody is logged in", async () => {
+  fetch.mockResolvedValueOnce(jsonResponse({ error: "Too many sign-ups, try again in 60 minutes" }, 429));
+  const { result } = renderSignUp();
+
+  await act(() => result.current.signup(valid));
+
+  expect(toast.error).toHaveBeenCalledWith("Too many sign-ups, try again in 60 minutes", { id: "rate-limit" });
+  expect(result.current.auth.authUser).toBeNull();
+  expect(localStorage.getItem("chat-user")).toBeNull();
+});

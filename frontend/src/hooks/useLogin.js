@@ -2,6 +2,7 @@ import toast from "react-hot-toast"
 import { useAuthContext } from "../context/AuthContext"
 import { useState } from "react"
 import { API_URL } from "../config"
+import showRateLimit from "../utils/showRateLimit"
 
 const useLogin = () => {
 
@@ -27,6 +28,9 @@ const useLogin = () => {
                     "password" : password
                 })
             })
+
+            // Too many failed logins, from this address or for this username.
+            if(res.status === 429) return showRateLimit(res)
 
             const data = await res.json()
 
