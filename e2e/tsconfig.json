@@ -1,0 +1,14 @@
+// The end-to-end tests and the Playwright config. Playwright compiles them itself;
+// this only checks them. Callbacks passed to page.evaluate() run in the browser,
+// hence the DOM types. As in the backend's tests, `any` is allowed here.
+{
+  "extends": "../tsconfig.backend.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "noUncheckedIndexedAccess": false,
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.e2e.tsbuildinfo"
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"],
+  "exclude": []
+}

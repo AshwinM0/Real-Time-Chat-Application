@@ -1,0 +1,38 @@
+// The backend's source. Nothing here emits JavaScript: tsx runs the backend in
+// development, Jest strips the types with Babel, and tsconfig.build.json compiles it
+// for production. Those three only remove types, without checking them, so this is
+// what catches type errors: `npm run typecheck`.
+{
+  "compilerOptions": {
+    // Node 20.19, the oldest version the backend supports, runs all of ES2022/ES2023.
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    // Imports name the real file, ./app.ts, so tsx, Jest and Node itself all find
+    // it. The production build rewrites them to ./app.js.
+    "rewriteRelativeImportExtensions": true,
+    // Only syntax that can be removed without compiling, such as annotations, with
+    // `import type` for imports used only as types. That's what lets tsx, Babel and
+    // tsc each handle a file on its own and produce the same code.
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.backend.tsbuildinfo"
+  },
+  "include": ["backend"],
+  "exclude": ["backend/__tests__", "backend/test"]
+}

@@ -1,0 +1,13 @@
+// Compiles the backend to JavaScript for production: `npm run build`, then `npm start`.
+// Same settings as the type check, minus the tests, writing to dist/.
+{
+  "extends": "./tsconfig.backend.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "backend",
+    "outDir": "dist",
+    // So stack traces from dist/ point at the lines in backend/ (npm start
+    // passes --enable-source-maps).
+    "sourceMap": true
+  }
+}

@@ -1,0 +1,13 @@
+// The backend's tests and their helpers: the backend's settings, plus Jest's globals.
+// Tests may use `any`, for mocks and API responses, and skip the check that every
+// array index exists, which only adds noise where the test built the array.
+{
+  "extends": "./tsconfig.backend.json",
+  "compilerOptions": {
+    "types": ["node", "jest"],
+    "noUncheckedIndexedAccess": false,
+    "tsBuildInfoFile": "node_modules/.tmp/tsconfig.test.tsbuildinfo"
+  },
+  "include": ["backend/__tests__", "backend/test"],
+  "exclude": []
+}

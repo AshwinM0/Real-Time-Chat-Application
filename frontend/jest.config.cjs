@@ -1,18 +1,21 @@
+/** @type {import("jest").Config} */
 module.exports = {
   testEnvironment: "jsdom",
-  setupFilesAfterEnv: ["<rootDir>/test/setup.js"],
+  setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
   moduleNameMapper: {
     "\\.(css)$": "identity-obj-proxy",
-    "\\.(png|svg)$": "<rootDir>/test/fileStub.js",
-    // Every test gets a fake socket; see test/fakeSocket.js.
-    "^socket\\.io-client$": "<rootDir>/test/fakeSocket.js",
+    "\\.(png|svg)$": "<rootDir>/test/fileStub.ts",
+    // Every test gets a fake socket; see test/fakeSocket.ts.
+    "^socket\\.io-client$": "<rootDir>/test/fakeSocket.ts",
   },
   // Reset call counts between tests (implementations are kept).
   clearMocks: true,
   collectCoverageFrom: [
-    "src/**/*.{js,jsx}",
-    "!src/main.jsx",                  // wiring
-    "!src/config.js",                 // replaced in tests, see test/setup.js
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts",
+    "!src/main.tsx",                  // wiring
+    "!src/config.ts",                 // replaced in tests, see test/setup.ts
+    "!src/types.ts",                  // types only: nothing runs
     "!src/components/skeletons/**",   // markup only
   ],
   coverageThreshold: {

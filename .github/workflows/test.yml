@@ -5,6 +5,28 @@ on:
   pull_request:
 
 jobs:
+  # tsx, Babel (in Jest) and Vite only strip types without checking them, so this
+  # job is what fails a build on a type error, or on an `any` the lint rules refuse.
+  types:
+    name: Types and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix frontend
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build # the backend's production build
+      - run: npm --prefix frontend run typecheck
+      - run: npm --prefix frontend run lint
+
   backend:
     name: Backend (Jest)
     runs-on: ubuntu-latest

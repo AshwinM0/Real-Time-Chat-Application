@@ -1,0 +1,36 @@
+// The app, as the browser runs it. Vite strips the types without checking them, so
+// this is what catches type errors.
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2020",
+    // The JavaScript Vite's default build target supports, so using something newer,
+    // such as Array.prototype.at, is an error instead of a crash in older browsers.
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+
+    // Only syntax that can be removed without compiling, with `import type` for
+    // imports used only as types, so Vite and Babel (in the tests) can each strip
+    // a file on its own.
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "isolatedModules": true,
+
+    "useDefineForClassFields": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src"],
+  "exclude": ["src/**/__tests__"]
+}

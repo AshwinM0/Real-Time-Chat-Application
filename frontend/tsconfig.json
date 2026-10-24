@@ -1,0 +1,11 @@
+// Points TypeScript at the frontend's three projects, each checked with its own
+// settings: the app, its tests, and the config files that run in Node.
+// `npm run typecheck` (tsc --build) checks them all; so does `npm run build`.
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.test.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}

@@ -1,0 +1,11 @@
+// Points TypeScript at the root package's three projects, each checked with its own
+// settings. `npm run typecheck` runs `tsc --build`, which checks them all. The
+// frontend has its own, in frontend/.
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.backend.json" },
+    { "path": "./tsconfig.test.json" },
+    { "path": "./e2e/tsconfig.json" }
+  ]
+}

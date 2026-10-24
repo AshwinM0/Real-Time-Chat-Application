@@ -1,0 +1,15 @@
+// The tests and their helpers in test/: the app's settings, plus Jest's globals and
+// jest-dom's matchers. Tests run in Node, so newer JavaScript is fine. They may use
+// `any`, for mocks and canned responses, and skip the check that every array index
+// exists, which only adds noise where the test built the array.
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "jest", "@testing-library/jest-dom"],
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src", "test"],
+  "exclude": []
+}

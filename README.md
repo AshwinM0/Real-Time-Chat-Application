@@ -1,6 +1,6 @@
 # Real-Time Chat Application
 
-A one-to-one chat app built with MongoDB, Express, React and Node.js, using Socket.IO for live updates. Messages arrive instantly, you can see who's online, and chats you aren't looking at collect unread badges.
+A one-to-one chat app built in TypeScript with MongoDB, Express, React and Node.js, using Socket.IO for live updates. Messages arrive instantly, you can see who's online, and chats you aren't looking at collect unread badges.
 
 ![Screenshot of the chat app](https://github.com/AshwinM0/Real-Time-Chat-Application/assets/145743047/664f794c-a765-402c-9f75-3cda53ecd0ac)
 
@@ -18,6 +18,7 @@ A one-to-one chat app built with MongoDB, Express, React and Node.js, using Sock
 
 | Area | Tools |
 |---|---|
+| Language | TypeScript, strict, checked by tsc and typescript-eslint (see [Types](#types)) |
 | Backend | Node.js, Express, Socket.IO, MongoDB with Mongoose, jsonwebtoken, bcryptjs, express-rate-limit, optionally Redis (node-redis) |
 | Frontend | React 18, Vite, Zustand, Tailwind CSS with daisyUI, socket.io-client |
 | Tests | Jest, Supertest, mongodb-memory-server, React Testing Library, Playwright |
@@ -93,7 +94,7 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 In two terminals:
 
 ```shell
-npm run server                 # backend on the PORT you set; restarts when files change
+npm run server                 # backend on the PORT you set, run by tsx; restarts when files change
 npm --prefix frontend run dev  # frontend on http://localhost:3000
 ```
 
@@ -102,8 +103,9 @@ Open http://localhost:3000 and sign up. To try real-time chat on your own, sign 
 ### Production build
 
 ```shell
-npm --prefix frontend run build   # static files in frontend/dist
-node backend/server.js            # backend without auto-restart
+npm --prefix frontend run build   # checks the types, then writes static files to frontend/dist
+npm run build                     # compiles the backend to dist/
+npm start                         # runs dist/server.js, without auto-restart
 ```
 
 Set `VITE_API_URL` before building, and set `CLIENT_ORIGIN` on the backend to the frontend's URL. Serve the frontend and backend from the same site, for example `app.example.com` and `api.example.com`: the login cookie isn't marked `SameSite=None`, so browsers won't reliably send it across sites.
@@ -116,6 +118,8 @@ Set `VITE_API_URL` before building, and set `CLIENT_ORIGIN` on the backend to th
 | `npm run test:frontend` | Hooks, components and the chat store, with React Testing Library and a fake socket |
 | `npm run test:e2e` | Playwright tests in Chromium against the real backend and a production build of the frontend, plus a few with the API mocked |
 | `npm test` | All three, in that order |
+| `npm run typecheck`, `npm run lint` | Type check and lint the backend and the end-to-end tests |
+| `npm --prefix frontend run typecheck`, `npm --prefix frontend run lint` | The same for the frontend |
 
 The tests never use your database, your Redis or your secrets: they set their own variables, raise the rate limits, and run MongoDB in memory. The first run downloads a MongoDB binary, which can take a minute.
 
@@ -131,14 +135,28 @@ The end-to-end tests start their own backend on port 5100 and frontend on port 3
 
 Tests marked `test.failing` document known bugs, such as missing input validation. They start failing once the bug is fixed, as a reminder to turn them into normal tests.
 
-GitHub Actions runs all three suites on every push and pull request.
+GitHub Actions checks the types and lint, and runs all three suites, on every push and pull request.
+
+## Types
+
+The code is TypeScript in strict mode, with `noUncheckedIndexedAccess`. tsx (in development), Babel (in Jest) and Vite only remove the types without checking them, so `npm run typecheck` and CI are what catch type errors.
+
+Lint rules keep `any` out of the app's code, though not out of the tests: no `any` or `unknown` written out, no `as` casts, no non-null `!`, and no passing on an `any` that a library returned, such as from `JSON.parse`. Where one is truly needed, the rule is turned off on that line with the reason: a caught error, and the Express error handler's argument, can be any value, so those are `unknown` until checked.
+
+Two kinds of values are trusted rather than checked when they arrive:
+
+- **JSON in the frontend.** `readJson` and `parseJson` in [frontend/src/utils/json.ts](frontend/src/utils/json.ts) give API responses, and the user saved in localStorage, the type the caller names. Those types, in [frontend/src/types.ts](frontend/src/types.ts), must match what the backend sends.
+- **Request bodies in the backend.** Each handler declares the body it expects ([backend/types.ts](backend/types.ts)), but nothing validates it yet: the `test.failing` tests BI-4 and BI-15 track that.
+
+A schema library such as zod would turn both into checked types.
 
 ## Project structure
 
 ```
 backend/
-  server.js     entry point: HTTP server, Socket.IO and the MongoDB connection
-  app.js        builds the Express app, shared by server.js and the tests
+  server.ts     entry point: HTTP server, Socket.IO and the MongoDB connection
+  app.ts        builds the Express app, shared by server.ts and the tests
+  types.ts      the request and error bodies the API takes and sends
   socket/       Socket.IO: handshake authentication, presence, rooms
   redis/        the optional Redis connection
   middleware/   login check (protectRoute) and rate limits
@@ -146,10 +164,12 @@ backend/
   __tests__/    unit and integration tests (helpers in test/)
 frontend/
   src/
+    types.ts    the API's JSON and the socket's events, as the app reads them
     context/    logged-in user and the socket connection
     zustand/    chat store: open conversation, messages, unread counts
     components/, pages/, hooks/
   test/         Jest helpers
 e2e/            Playwright tests: real backend in tests/, mocked API in mocked/
+tsconfig.json  TypeScript projects: the backend, its tests and e2e (the frontend has its own)
 .github/workflows/test.yml   CI
 ```
