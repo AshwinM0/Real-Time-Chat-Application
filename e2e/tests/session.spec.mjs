@@ -13,6 +13,19 @@ test("E2E-10: a lost cookie sends you back to login with a single toast", async 
   await expect(page.getByText("Your session has expired")).toHaveCount(1);
 });
 
+test("E2E-15: logging out in one tab logs out the other tabs too, quietly", async ({ makeUser }) => {
+  const ann = await makeUser("Ann");
+  // Two pages in one context are two tabs: they share the cookie and localStorage.
+  const tab1 = await ann.open();
+  const tab2 = await ann.open();
+  await expect(tab2.getByText(`Welcome 👋 ${ann.fullName}`)).toBeVisible();
+
+  await tab1.getByRole("button", { name: "Log out" }).click();
+
+  await expect(tab2.getByRole("heading", { name: /Login/ })).toBeVisible();
+  await expect(tab2.getByText("session has expired")).toHaveCount(0);
+});
+
 test("E2E-11: after the connection drops and comes back, the open chat catches up", async ({ makeUser }) => {
   const alice = await makeUser("Alice");
   const bob = await makeUser("Bob");

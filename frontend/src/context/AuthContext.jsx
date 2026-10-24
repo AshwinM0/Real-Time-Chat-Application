@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
 export const AuthContext = createContext()
@@ -17,6 +17,20 @@ export const AuthContextProvider = ({ children }) => {
         localStorage.removeItem("chat-user")
         setAuthUser(null)
         toast.error("Your session has expired. Please log in again.", { id: "session-expired" })
+    }, [])
+
+    // Keep every tab on the same login. When another tab changes localStorage, the
+    // browser fires "storage" here (never in the tab that made the change). Without
+    // this, logging out in one tab would leave the others showing the chat. Logging
+    // in as someone else would leave them showing the old user while their requests
+    // use the new cookie.
+    useEffect(() => {
+        const onStorage = (e) => {
+            if (e.key !== "chat-user") return
+            setAuthUser(e.newValue ? JSON.parse(e.newValue) : null)
+        }
+        window.addEventListener("storage", onStorage)
+        return () => window.removeEventListener("storage", onStorage)
     }, [])
 
 return <AuthContext.Provider value={{authUser, setAuthUser, expireSession}}>

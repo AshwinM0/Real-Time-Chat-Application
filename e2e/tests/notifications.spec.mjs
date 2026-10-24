@@ -22,6 +22,33 @@ test("E2E-4: a message for a closed chat becomes a toast and a badge, not a mess
   await expect(sidebarEntry(bobPage, alice).getByLabel(/unread messages/)).toHaveCount(0);
 });
 
+test("E2E-17: unread badges count messages sent while you were away, and stay right after a reload", async ({ makeUser }) => {
+  const alice = await makeUser("Alice");
+  const bob = await makeUser("Bob");
+  const carol = await makeUser("Carol");
+  // Bob doesn't have the app open, so nothing is pushed to him; it's all saved.
+  for (const text of ["while you were out", "still there?"]) {
+    expect((await alice.send(bob, text)).status()).toBe(201);
+  }
+  expect((await carol.send(bob, "hi bob")).status()).toBe(201);
+
+  const page = await bob.open();
+  await expect(sidebarEntry(page, alice).getByLabel("2 unread messages")).toBeVisible();
+  await expect(sidebarEntry(page, carol).getByLabel("1 unread messages")).toBeVisible();
+
+  // Opening Alice's chat tells the server it has been read.
+  const markedRead = page.waitForResponse((res) => res.url().endsWith("/read") && res.request().method() === "POST");
+  await openChat(page, alice);
+  await markedRead;
+  await expect(sidebarEntry(page, alice).getByLabel(/unread messages/)).toHaveCount(0);
+
+  // After a reload the counts come from the server again. Carol's badge showing
+  // proves they've loaded, so Alice's missing badge means hers really was cleared.
+  await page.reload();
+  await expect(sidebarEntry(page, carol).getByLabel("1 unread messages")).toBeVisible();
+  await expect(sidebarEntry(page, alice).getByLabel(/unread messages/)).toHaveCount(0);
+});
+
 test("E2E-5: with no chat open, a message becomes a toast and a badge", async ({ makeUser }) => {
   const alice = await makeUser("Alice");
   const bob = await makeUser("Bob");

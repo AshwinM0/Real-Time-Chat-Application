@@ -1,6 +1,8 @@
 import User from "../models/userModel.js"
 import bcrypt from 'bcryptjs'
 import generateTokenAndSetCookie from "../utils/generateToken.js"
+import revokeToken from "../utils/revokeToken.js"
+import { disconnectSession } from "../socket/socket.js"
 
 
 //SIGNUP
@@ -98,12 +100,18 @@ export const login = async (req, res) => {
 export const logout = async (req, res) => {
     
     try {
-        
+        // Revoke the token itself, so a copy of the cookie stops working too, then
+        // close the sockets it opened (every tab in this browser). Other logins are
+        // untouched. With no valid token there's nothing to revoke, and logout
+        // still succeeds.
+        const jti = await revokeToken(req.cookies?.jwt)
+        if(jti) disconnectSession(jti)
+
         res.cookie("jwt", "", {maxAge : 0})
         res.status(200).json({message : "Logged out successfully"})
 
     } catch(e) {
-        console.log("ERROR in login Controller"+ e.message)
+        console.log("ERROR in logout Controller"+ e.message)
         res.status(500).json({error : "internal server error"})
     }
 }

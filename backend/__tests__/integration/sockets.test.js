@@ -60,6 +60,32 @@ describe("handshake authentication", () => {
   });
 });
 
+describe("logout", () => {
+  test("BI-34: logging out disconnects every socket opened with that cookie, and only those", async () => {
+    const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+    const phoneLogin = await request(server.url).post("/api/auth/login")
+      .send({ username: ann.username, password: "secret123" }).expect(200);
+    const phone = { cookie: phoneLogin.headers["set-cookie"].find((c) => c.startsWith("jwt=")).split(";")[0] };
+
+    // Two tabs share the browser's cookie. The phone logged in separately.
+    const [tab1, tab2, phoneSocket] = await Promise.all(
+      [ann, ann, phone].map((user) => connectSocket(server, user).ready));
+    const closed = (socket) => new Promise((resolve) => socket.once("disconnect", resolve));
+    const tabsClosed = Promise.all([closed(tab1), closed(tab2)]);
+
+    await request(server.url).post("/api/auth/logout").set("Cookie", ann.cookie).expect(200);
+
+    // "io server disconnect" means the server closed them, so they won't reconnect.
+    expect(await tabsClosed).toEqual(["io server disconnect", "io server disconnect"]);
+    // The phone still receives messages.
+    const delivered = nextMessage(phoneSocket);
+    await send(bob, ann, "still there?").expect(201);
+    expect((await delivered).message.message).toBe("still there?");
+    // And the old cookie can't open a new socket.
+    await expect(connectSocket(server, ann).ready).rejects.toThrow("Unauthorized");
+  });
+});
+
 describe("presence", () => {
   test("BI-24: everyone online receives the full list", async () => {
     const users = await Promise.all(["ann", "bob", "cat"].map((n) => signUp(server, n)));

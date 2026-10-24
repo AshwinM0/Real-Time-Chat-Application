@@ -17,7 +17,14 @@ export default defineConfig({
     {
       command: "node e2e/start-backend.mjs", // MongoDB in memory + backend on 5100
       url: `${API}/socket.io/?EIO=4&transport=polling`,
-      env: { PORT: "5100", CLIENT_ORIGIN: WEB, JWT_SECRET: "e2e-secret", NODE_ENV: "test" },
+      env: {
+        PORT: "5100", CLIENT_ORIGIN: WEB, JWT_SECRET: "e2e-secret", NODE_ENV: "test",
+        // Every test signs up and logs in from this machine, which the real limits would refuse.
+        RATE_LIMIT_LOGIN_PER_IP: "100000",
+        RATE_LIMIT_LOGIN_PER_USER: "100000",
+        RATE_LIMIT_SIGNUP_PER_IP: "100000",
+        RATE_LIMIT_SEND_PER_USER: "100000",
+      },
       timeout: 180_000, // the first run on a machine downloads the MongoDB binary
     },
     {

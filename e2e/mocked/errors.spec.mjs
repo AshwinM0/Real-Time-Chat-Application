@@ -28,7 +28,8 @@ test("FM-3: a failing user list shows an error, and the page still renders", asy
 test("FM-4: a slow chat shows skeletons first, then the messages", async ({ page }) => {
   await seedUser(page, ME);
   await mockApi(page, "/api/users", { json: [BOB] });
-  await mockApi(page, "/api/messages/bob", {
+  // The trailing * also matches the paging query, such as ?limit=50.
+  await mockApi(page, "/api/messages/bob*", {
     delayMs: 1500,
     json: [{ _id: "m1", senderId: "bob", receiverId: "me", message: "worth the wait", createdAt: new Date().toISOString() }],
   });

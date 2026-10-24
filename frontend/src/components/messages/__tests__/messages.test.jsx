@@ -1,4 +1,4 @@
-import { act, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Messages from "../Messages";
 import Message from "../Message";
@@ -41,6 +41,43 @@ describe("FU-47: Messages", () => {
     useGetMessages.mockReturnValueOnce({ loading: false, messages: [message(), message({ _id: "m2", message: "again" })] });
     renderWithProviders(<Messages />);
     expect(screen.getAllByTestId("message").map((m) => m.textContent.trim())).toEqual(["hello", "again"]);
+  });
+});
+
+describe("FU-59: Messages loads older history when scrolled to the top", () => {
+  // jsdom has no layout, so the list's scrollTop is always 0: every scroll is "at the top".
+  const history = { loading: false, messages: [message()], loadingOlder: false };
+  const scrollList = () => fireEvent.scroll(screen.getByTestId("message-list"));
+
+  test("asks for older messages when there are some", () => {
+    const loadOlder = jest.fn();
+    useGetMessages.mockReturnValueOnce({ ...history, hasOlder: true, loadOlder });
+    renderWithProviders(<Messages />);
+
+    scrollList();
+
+    expect(loadOlder).toHaveBeenCalledTimes(1);
+  });
+
+  test("doesn't ask at the start of the chat", () => {
+    const loadOlder = jest.fn();
+    useGetMessages.mockReturnValueOnce({ ...history, hasOlder: false, loadOlder });
+    renderWithProviders(<Messages />);
+
+    scrollList();
+
+    expect(loadOlder).not.toHaveBeenCalled();
+  });
+
+  test("doesn't ask again while a page is loading, and shows a spinner meanwhile", () => {
+    const loadOlder = jest.fn();
+    useGetMessages.mockReturnValueOnce({ ...history, hasOlder: true, loadingOlder: true, loadOlder });
+    renderWithProviders(<Messages />);
+
+    scrollList();
+
+    expect(loadOlder).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Loading older messages")).toBeInTheDocument();
   });
 });
 
@@ -108,7 +145,7 @@ describe("FU-50: MessageInput", () => {
   });
 
   test("submitting text sends it and clears the input", async () => {
-    const sendMessage = jest.fn().mockResolvedValue();
+    const sendMessage = jest.fn().mockResolvedValue(true);
     useSendMessage.mockReturnValue({ loading: false, sendMessage });
     const user = userEvent.setup();
     renderWithProviders(<MessageInput />);
@@ -119,5 +156,45 @@ describe("FU-50: MessageInput", () => {
 
     expect(sendMessage).toHaveBeenCalledWith("hello");
     expect(input).toHaveValue("");
+  });
+
+  test("text that wasn't sent, for example after sending too fast, stays in the input", async () => {
+    const sendMessage = jest.fn().mockResolvedValue(undefined);
+    useSendMessage.mockReturnValue({ loading: false, sendMessage });
+    const user = userEvent.setup();
+    renderWithProviders(<MessageInput />);
+    const input = screen.getByPlaceholderText("Send a Message");
+
+    await user.type(input, "hello{Enter}");
+
+    expect(sendMessage).toHaveBeenCalledWith("hello");
+    expect(input).toHaveValue("hello");
+  });
+});
+
+describe("FU-52: MessageInput while a message is sending", () => {
+  // The real hook, so loading follows the request instead of a canned value.
+  beforeEach(() => useSendMessage.mockImplementation(jest.requireActual("../../../hooks/useSendMessage").default));
+  afterEach(() => useSendMessage.mockReset());
+
+  test("more Enters and clicks don't send it again, and the button comes back once it's sent", async () => {
+    useConversation.getState().setSelectedConversation(BOB);
+    let respond;
+    fetch.mockReturnValueOnce(new Promise((resolve) => { respond = resolve; }));
+    const user = userEvent.setup();
+    renderWithProviders(<MessageInput />);
+    const input = screen.getByPlaceholderText("Send a Message");
+    const button = screen.getByRole("button", { name: "Send message" });
+
+    await user.type(input, "hello{Enter}");
+    await user.keyboard("{Enter}");
+    await user.click(button);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(button).toBeDisabled();
+
+    await act(async () => respond(jsonResponse(message({ senderId: "me", receiverId: "u2" }), 201)));
+    await waitFor(() => expect(input).toHaveValue(""));
+    expect(button).toBeEnabled();
   });
 });

@@ -36,6 +36,14 @@ describe("Conversation", () => {
     expect(store().selectedConversation).toBe(BOB);
     expect(screen.queryByLabelText(/unread messages/)).not.toBeInTheDocument();
   });
+
+  test("FU-63: from 100 unread, the badge says 99+ (the server stops counting at 100)", () => {
+    renderWithProviders(<Conversation conversation={BOB} />);
+
+    act(() => store().setUnread({ u2: 100 }));
+
+    expect(screen.getByLabelText("More than 99 unread messages")).toHaveTextContent("99+");
+  });
 });
 
 describe("Conversations", () => {

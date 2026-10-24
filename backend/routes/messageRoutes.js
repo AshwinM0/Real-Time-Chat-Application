@@ -1,12 +1,23 @@
 import express from "express";
-import { sendMessage, getMessages } from '../controllers/messageController.js'
+import { sendMessage, getMessages, markRead, getUnreadCounts } from '../controllers/messageController.js'
 import protectRoute from "../middleware/protectRoute.js";
 
-const router = express.Router()
+// limits: the rate limiters from createRateLimits().
+const messageRoutes = ({ sendByUser }) => {
+    const router = express.Router()
 
-router.get("/:id", protectRoute, getMessages)
+    // Before "/:id", which would otherwise take "unread" for a user id.
+    router.get("/unread", protectRoute, getUnreadCounts)
 
-router.post("/send/:id", protectRoute, sendMessage)
+    router.get("/:id", protectRoute, getMessages)
+
+    // The limit is per user, so it goes after protectRoute, which sets req.user.
+    router.post("/send/:id", protectRoute, sendByUser, sendMessage)
+
+    router.post("/:id/read", protectRoute, markRead)
+
+    return router
+}
 
 
-export default router;
+export default messageRoutes;

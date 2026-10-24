@@ -3,6 +3,7 @@ import Messages from './Messages'
 import MessageInput from './MessageInput'
 import { TiMessages } from "react-icons/ti"
 import useConversation from '../../zustand/useConversation'
+import useMarkRead from '../../hooks/useMarkRead'
 import { useAuthContext } from "../../context/AuthContext";
 import { useSocketContext } from "../../context/SocketContext";
 
@@ -11,6 +12,8 @@ const MessageContainer = () => {
   const {selectedConversation, setSelectedConversation} = useConversation()
   const { onlineUsers } = useSocketContext()
   const isOnline = onlineUsers.includes(selectedConversation?._id)
+  // Records on the server that the open chat has been read, so its badge stays gone.
+  useMarkRead()
 
   useEffect(() => {
     return () => setSelectedConversation(null)

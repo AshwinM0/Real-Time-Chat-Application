@@ -35,3 +35,38 @@ describe("FU-36: AuthContext", () => {
     }
   });
 });
+
+describe("FU-51: AuthContext follows logins and logouts in other tabs", () => {
+  // The browser fires "storage" in every other tab when one tab changes localStorage.
+  const otherTabSets = (newValue) =>
+    window.dispatchEvent(new StorageEvent("storage", { key: "chat-user", newValue }));
+
+  test("logging out in another tab logs this tab out, without a session-expired toast", () => {
+    seedUser(ME);
+    const { result } = renderAuth();
+
+    act(() => otherTabSets(null));
+
+    expect(result.current.authUser).toBeNull();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  test("logging in as someone else in another tab switches this tab to them", () => {
+    seedUser(ME);
+    const { result } = renderAuth();
+    const other = { ...ME, _id: "other", fullName: "Bo Other" };
+
+    act(() => otherTabSets(JSON.stringify(other)));
+
+    expect(result.current.authUser).toEqual(other);
+  });
+
+  test("changes to other localStorage keys are ignored", () => {
+    seedUser(ME);
+    const { result } = renderAuth();
+
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: "something-else", newValue: null })));
+
+    expect(result.current.authUser).toEqual(ME);
+  });
+});

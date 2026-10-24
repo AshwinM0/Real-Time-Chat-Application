@@ -40,3 +40,14 @@ describe("FU-12: useLogin", () => {
     expect(result.current.auth.authUser).toBeNull();
   });
 });
+
+test("FU-64: too many failed logins (429) shows when to try again, and nobody is logged in", async () => {
+  fetch.mockResolvedValueOnce(jsonResponse({ error: "Too many login attempts, try again in 15 minutes" }, 429));
+  const { result } = renderLogin();
+
+  await act(() => result.current.login("ann", "secret1"));
+
+  expect(toast.error).toHaveBeenCalledWith("Too many login attempts, try again in 15 minutes", { id: "rate-limit" });
+  expect(result.current.auth.authUser).toBeNull();
+  expect(result.current.loading).toBe(false);
+});

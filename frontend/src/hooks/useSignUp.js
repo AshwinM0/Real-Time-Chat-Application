@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import toast from 'react-hot-toast'
 import { useAuthContext } from '../context/AuthContext'
 import { API_URL } from '../config'
+import showRateLimit from '../utils/showRateLimit'
 
 const useSignUp = () => {
   const [loading, setLoading] = useState(false)
@@ -21,6 +22,9 @@ const useSignUp = () => {
             credentials: 'include',
             body: JSON.stringify({fullName, username, password, confirmPassword, gender})
         })
+
+        // Too many sign-ups from this address.
+        if(res.status === 429) return showRateLimit(res)
 
         const data = await res.json();
 

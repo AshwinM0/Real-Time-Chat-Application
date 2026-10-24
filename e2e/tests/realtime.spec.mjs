@@ -50,6 +50,32 @@ test("E2E-12: history survives a reload, in order", async ({ makeUser }) => {
   await expect(page.getByTestId("message")).toHaveText(["first", "second", "third"]);
 });
 
+test("E2E-16: a long chat opens on its newest messages, and scrolling up loads older ones without jumping", async ({ makeUser }) => {
+  const alice = await makeUser("Alice");
+  const bob = await makeUser("Bob");
+  // 60 messages: one more page's worth than the 50 a chat opens with.
+  const note = (n) => `note ${String(n).padStart(2, "0")}`;
+  for (let n = 1; n <= 60; n++) {
+    expect((await alice.send(bob, note(n))).status()).toBe(201);
+  }
+
+  const page = await bob.open();
+  await openChat(page, alice);
+  await expect(page.getByTestId("message")).toHaveCount(50);
+  await expect(messages(page, note(60))).toBeInViewport(); // starts at the bottom
+  await expect(messages(page, note(10))).toHaveCount(0);
+
+  await page.getByTestId("message-list").evaluate((list) => list.scrollTo(0, 0));
+
+  await expect(page.getByTestId("message")).toHaveCount(60);
+  await expect(page.getByTestId("message").first()).toHaveText(note(1));
+  // The reader's place is kept: note 11, at the top before the older ones arrived,
+  // is still in view. The list jumped neither to the very top nor to the bottom.
+  await expect(messages(page, note(11))).toBeInViewport();
+  await expect(messages(page, note(1))).not.toBeInViewport();
+  await expect(messages(page, note(60))).not.toBeInViewport();
+});
+
 test("E2E-13: searching part of a name and pressing Enter opens that chat", async ({ makeUser }) => {
   const zed = await makeUser("Zed");
   const me = await makeUser("Me");
