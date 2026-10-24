@@ -1,6 +1,8 @@
 /** @type {import("jest").Config} */
 module.exports = {
   testEnvironment: "jsdom",
+  // Browser APIs jsdom lacks, before any test file imports the app.
+  setupFiles: ["<rootDir>/test/polyfills.ts"],
   setupFilesAfterEnv: ["<rootDir>/test/setup.ts"],
   moduleNameMapper: {
     "\\.(css)$": "identity-obj-proxy",

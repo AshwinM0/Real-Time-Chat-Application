@@ -2,7 +2,7 @@ import './App.css'
 import Home from './pages/home/home'
 import Login from './pages/login/login'
 import SignUp from './pages/signup/signUp'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router'
 import { Toaster } from 'react-hot-toast'
 import { useAuthContext } from './context/AuthContext'
 

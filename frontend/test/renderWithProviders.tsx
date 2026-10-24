@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import { render, renderHook } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { AuthContextProvider } from "../src/context/AuthContext";
 import { SocketContextProvider } from "../src/context/SocketContext";
 import type { User } from "../src/types";

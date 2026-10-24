@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import GenderCheckbox from './GenderCheckbox'
 import { useState, type FormEvent } from 'react'
 import useSignUp, { type SignUpInputs } from '../../hooks/useSignUp'
