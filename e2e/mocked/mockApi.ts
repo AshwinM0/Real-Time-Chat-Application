@@ -1,10 +1,17 @@
 import type { Page } from "@playwright/test";
 import { API, WEB } from "../urls.ts";
 
+// What a faked endpoint answers: the status, the JSON body, and how long it waits first.
+export interface CannedAnswer {
+  status?: number;
+  json?: any;
+  delayMs?: number;
+}
+
 // Answers requests to the API with canned responses, without reaching the backend.
 // The app calls the API cross-origin with cookies, so even a faked answer must
 // carry CORS headers, and the browser's preflight needs an answer of its own.
-export async function mockApi(page: Page, path: string, { status = 200, json, delayMs = 0 }: { status?: number; json?: any; delayMs?: number } = {}) {
+export async function mockApi(page: Page, path: string, { status = 200, json, delayMs = 0 }: CannedAnswer = {}) {
   const cors = { "access-control-allow-origin": WEB, "access-control-allow-credentials": "true" };
   await page.route(`${API}${path}`, async (route) => {
     if (route.request().method() === "OPTIONS") {

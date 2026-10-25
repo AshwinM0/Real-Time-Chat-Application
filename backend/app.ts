@@ -6,7 +6,7 @@ import authRoutes from "./routes/authRoutes.ts"
 import messageRoutes from "./routes/messageRoutes.ts"
 import protectRoute from "./middleware/protectRoute.ts"
 import { createRateLimits } from "./middleware/rateLimits.ts"
-import type { RedisClients } from "./redis/client.ts"
+import type { RedisOptions } from "./redis/client.ts"
 import userRoutes from "./routes/userRoutes.ts"
 import type { ErrorBody } from "./types.ts"
 import { errorMessage } from "./utils/errorMessage.ts"
@@ -35,7 +35,7 @@ const handleError: ErrorRequestHandler<ParamsDictionary, ErrorBody> = (err: unkn
 // server.ts wires it to a real port; tests serve it on a random free one.
 // redis: the clients from connectRedis() when REDIS_URL is set, so rate limits are
 // shared between servers. Without it they're kept in memory.
-export const createApp = ({ redis }: { redis?: RedisClients } = {}) => {
+export const createApp = ({ redis }: RedisOptions = {}) => {
     const app = express()
 
     if(process.env.TRUST_PROXY) app.set("trust proxy", trustProxy(process.env.TRUST_PROXY))

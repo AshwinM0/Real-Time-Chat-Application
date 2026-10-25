@@ -8,7 +8,11 @@ import { initSocket } from "../socket/socket.ts";
 // dbName keeps each test file in its own database on the shared in-memory server.
 // redis: optional Redis clients, as connectRedis() returns them, or a stand-in
 // from fakeRedis.ts.
-export async function startTestServer(dbName: string, { redis }: { redis?: any } = {}) {
+export interface TestServerOptions {
+  redis?: any;
+}
+
+export async function startTestServer(dbName: string, { redis }: TestServerOptions = {}) {
   await mongoose.connect(process.env.MONGO_TEST_URI!, { dbName });
   const httpServer = http.createServer(createApp({ redis }));
   const io = await initSocket(httpServer, { redis });

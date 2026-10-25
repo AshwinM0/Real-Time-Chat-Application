@@ -6,14 +6,21 @@ import MessageSkeleton from '../skeletons/MessageSkeleton'
 // How close to the top, in pixels, the user has to scroll before older messages load.
 const LOAD_OLDER_WITHIN = 100
 
+// What one render showed: the first and last message ids, and how far the user was
+// from the bottom of the list.
+interface ListSnapshot {
+  firstId?: string
+  lastId?: string
+  fromBottom: number
+}
+
 const Messages = () => {
 
   const {loading, messages, hasOlder, loadingOlder, loadOlder} = useGetMessages()
   const listRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
-  // What the previous render showed, to tell what changed: the first and last
-  // message ids, and how far the user was from the bottom of the list.
-  const previous = useRef<{ firstId?: string, lastId?: string, fromBottom: number }>({ firstId: undefined, lastId: undefined, fromBottom: 0 });
+  // What the previous render showed, to tell what changed.
+  const previous = useRef<ListSnapshot>({ firstId: undefined, lastId: undefined, fromBottom: 0 });
 
   // A layout effect runs after the DOM updates but before the browser paints, so
   // the scroll position changes without a visible jump.

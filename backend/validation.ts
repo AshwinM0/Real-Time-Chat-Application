@@ -32,9 +32,14 @@ export const LoginBody = z.object({
 }, NOT_AN_OBJECT)
 export type LoginBody = z.infer<typeof LoginBody>
 
-// POST /api/messages/send/:id
+// POST /api/messages/send/:id. clientMessageId is the sender's own id for the
+// message, chosen once and sent again with every retry, so the message is saved
+// once however many times it's sent (see sendMessage). The browser uses 128 random
+// bits; the limit on its length keeps the index small.
 export const SendMessageBody = z.object({
     message: text("Message"),
+    clientMessageId: z.string({ error: (issue) => issue.input === undefined ? "clientMessageId is required" : "clientMessageId must be text" })
+        .regex(/^[A-Za-z0-9_-]{16,64}$/, { error: "clientMessageId must be 16 to 64 letters, digits, - or _" }),
 }, NOT_AN_OBJECT)
 
 // Routes with the other user's id in the path: /send/:id, /:id and /:id/read.

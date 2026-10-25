@@ -1,7 +1,12 @@
 import type { Gender } from '../../types'
 
-// selectedGender is "" until one is picked.
-const GenderCheckbox = ({onCheckboxChange, selectedGender}: { onCheckboxChange: (gender: Gender) => void, selectedGender: Gender | "" }) => {
+interface GenderCheckboxProps {
+  onCheckboxChange: (gender: Gender) => void
+  // "" until one is picked.
+  selectedGender: Gender | ""
+}
+
+const GenderCheckbox = ({onCheckboxChange, selectedGender}: GenderCheckboxProps) => {
   return (
     <div className='flex mt-2'>
         <div className='form-control'>

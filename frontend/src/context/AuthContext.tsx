@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type PropsWithChildren } from "react";
 import toast from "react-hot-toast";
 import type { User } from "../types";
 import { parseJson } from "../utils/json";
@@ -21,7 +21,7 @@ export const useAuthContext = (): AuthContextValue => {
 // The user that useLogin or useSignUp saved as "chat-user", if any.
 const savedUser = (json: string | null): User | null => json ? parseJson<User>(json) : null
 
-export const AuthContextProvider = ({ children }: { children: ReactNode }) => {
+export const AuthContextProvider = ({ children }: PropsWithChildren) => {
     const [authUser, setAuthUser] = useState(() => savedUser(localStorage.getItem("chat-user")))
 
     // Call when the server answers 401: the saved user no longer has a valid cookie.

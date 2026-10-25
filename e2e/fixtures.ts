@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { test as base, expect, type APIResponse, type BrowserContext, type Page } from "@playwright/test";
 import { API } from "./urls.ts";
 
@@ -19,13 +20,24 @@ export interface TestUser {
   tag: string;
   password: string;
   context: BrowserContext;
-  send: (to: { _id: string }, message: string) => Promise<APIResponse>;
+  send: (to: Pick<TestUser, "_id">, message: string) => Promise<APIResponse>;
   open: () => Promise<Page>;
 }
 
-type MakeUser = (name: string, options?: { loggedIn?: boolean }) => Promise<TestUser>;
+// loggedIn: false makes someone who has signed up but not logged in on this browser.
+interface MakeUserOptions {
+  loggedIn?: boolean;
+}
 
-export const test = base.extend<{ makeUser: MakeUser }>({
+type MakeUser = (name: string, options?: MakeUserOptions) => Promise<TestUser>;
+
+// The fixtures these tests add. A type, not an interface: extend() only takes an
+// object type it can index by any name.
+type Fixtures = {
+  makeUser: MakeUser;
+};
+
+export const test = base.extend<Fixtures>({
   // makeUser("Alice") signs a user up through the API and gives them their own
   // browser context. A context is like a separate browser profile, with its own
   // cookies and localStorage, so two contexts are two people chatting.
@@ -64,7 +76,8 @@ export const test = base.extend<{ makeUser: MakeUser }>({
         password: PASSWORD,
         context,
         // Sends a message straight through the API, using this user's cookie.
-        send: (to, message) => context.request.post(`${API}/api/messages/send/${to._id}`, { data: { message } }),
+        send: (to, message) =>
+          context.request.post(`${API}/api/messages/send/${to._id}`, { data: { message, clientMessageId: randomUUID() } }),
         open: async () => {
           const page = await context.newPage();
           await page.goto("/");

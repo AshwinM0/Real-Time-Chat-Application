@@ -4,7 +4,11 @@ import useConversation from '../../zustand/useConversation';
 import toast from 'react-hot-toast';
 import type { User } from '../../types';
 
-const SearchInput = ({conversations}: { conversations: User[] }) => {
+interface SearchInputProps {
+  conversations: User[]
+}
+
+const SearchInput = ({conversations}: SearchInputProps) => {
 
   const [search, setSearch] = useState("")
   const {setSelectedConversation} = useConversation()

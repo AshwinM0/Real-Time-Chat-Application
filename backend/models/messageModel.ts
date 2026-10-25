@@ -22,6 +22,12 @@ const messageSchema = new mongoose.Schema({
     message : {
         type : String,
         required : true
+    },
+    // The id the sender's browser gave this message. Sending it again, after an
+    // answer that never arrived, carries the same id, and the index below stops a
+    // second copy (see sendMessage). Messages from before it existed have none.
+    clientMessageId : {
+        type : String
     }
 }, {timestamps: true})
 
@@ -29,6 +35,14 @@ const messageSchema = new mongoose.Schema({
 // serves that directly, so a page costs the same however long the chat is.
 // _id breaks ties between messages saved in the same millisecond.
 messageSchema.index({ conversationId : 1, createdAt : -1, _id : -1 })
+
+// One message per id per sender: two users may happen to pick the same id. Partial,
+// because a unique index counts a missing field as null, so it couldn't be built
+// once one sender had two messages from before clientMessageId.
+messageSchema.index(
+    { senderId : 1, clientMessageId : 1 },
+    { unique : true, partialFilterExpression : { clientMessageId : { $exists : true } } }
+)
 
 // A message's fields, worked out from the schema above, and a message loaded from MongoDB.
 export type MessageFields = InferSchemaType<typeof messageSchema>

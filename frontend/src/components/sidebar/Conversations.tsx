@@ -1,7 +1,12 @@
 import Conversation from './Conversation'
 import type { User } from '../../types'
 
-const Conversations = ({loading, conversations}: { loading: boolean, conversations: User[] }) => {
+interface ConversationsProps {
+  loading: boolean
+  conversations: User[]
+}
+
+const Conversations = ({loading, conversations}: ConversationsProps) => {
 
   return (
     <div className='py-2 flex flex-col overflow-auto'>

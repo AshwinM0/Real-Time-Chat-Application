@@ -44,7 +44,17 @@ export const redisTlsOptions = (url: string, env: NodeJS.ProcessEnv = process.en
 };
 
 // The two clients CHAT uses, not connected yet. tls: what redisTlsOptions() returns.
-export const createRedisClients = (url: string, { tls = {} }: { tls?: RedisTlsFiles } = {}) => {
+// Options for createRedisClients: the TLS files, as redisTlsOptions() reads them.
+export interface RedisClientsOptions {
+    tls?: RedisTlsFiles;
+}
+
+// Options for connectRedis: the TLS files, and how long to keep trying.
+export interface ConnectRedisOptions extends RedisClientsOptions {
+    timeoutMs?: number;
+}
+
+export const createRedisClients = (url: string, { tls = {} }: RedisClientsOptions = {}) => {
     // node-redis turns TLS on for a rediss:// URL, and refuses a socket.tls that
     // disagrees. Its types take the files only alongside tls: true, so say it here too.
     const socket = url.toLowerCase().startsWith("rediss://") ? { tls: true as const, ...tls } : {};
@@ -58,6 +68,12 @@ export const createRedisClients = (url: string, { tls = {} }: { tls?: RedisTlsFi
 
 // The clients connectRedis() resolves to, which the app and Socket.IO receive.
 export type RedisClients = ReturnType<typeof createRedisClients>;
+
+// What the app, its rate limits and Socket.IO are built with: the Redis clients when
+// REDIS_URL is set, so several servers share state, or none, to keep it in memory.
+export interface RedisOptions {
+    redis?: RedisClients;
+}
 
 // node-redis's errors for a TLS mismatch describe the symptom, not the setting to fix.
 const hint = (reason = "") => {
@@ -77,7 +93,7 @@ const hint = (reason = "") => {
 // so after timeoutMs this stops it and rejects instead.
 export const connectRedis = async (
     url: string,
-    { timeoutMs = 5000, tls }: { timeoutMs?: number; tls?: RedisTlsFiles } = {},
+    { timeoutMs = 5000, tls }: ConnectRedisOptions = {},
 ): Promise<RedisClients> => {
     const { pub, sub } = createRedisClients(url, { tls });
 

@@ -1,6 +1,6 @@
 import type { Request, RequestHandler } from 'express'
 import type { ParamsDictionary } from 'express-serve-static-core'
-import type { FilterQuery, SortOrder } from 'mongoose'
+import mongoose, { type FilterQuery, type SortOrder, type Types } from 'mongoose'
 import { loggedInUser } from '../middleware/protectRoute.ts'
 import Conversation from '../models/conversationModel.ts'
 import Message, { type MessageDocument } from '../models/messageModel.ts'
@@ -8,6 +8,42 @@ import { getIO, type MessageSender } from '../socket/socket.ts'
 import type { ErrorBody } from '../types.ts'
 import { errorMessage } from '../utils/errorMessage.ts'
 import { ChatParams, invalid, SendMessageBody } from '../validation.ts'
+
+// A message about to be saved.
+interface NewMessage {
+    conversationId: Types.ObjectId
+    senderId: Types.ObjectId
+    receiverId: string
+    message: string
+    clientMessageId: string
+}
+
+// What saveOnce returns: the message, and whether this attempt saved it (isNew) or
+// an earlier one did.
+interface SavedMessage {
+    saved: MessageDocument
+    isNew: boolean
+}
+
+// Saves the message once, however many times it's sent. A send whose answer never
+// reached the browser looks like a failure there, so the user sends it again, with
+// the same clientMessageId (see useSendMessage). The unique index on senderId and
+// clientMessageId then refuses the insert, and this returns the message the first
+// attempt saved, with isNew false. Inserting first, rather than looking first, costs
+// an ordinary send nothing extra, and two attempts at the same moment can't both
+// get in. null: the id was already used for a different message.
+const saveOnce = async (fields: NewMessage): Promise<SavedMessage | null> => {
+    try {
+        return { saved: await Message.create(fields), isNew: true }
+    } catch(e) {
+        // 11000: a duplicate key, which only that index can produce here.
+        if(!(e instanceof mongoose.mongo.MongoServerError && e.code === 11000)) throw e
+        const saved = await Message.findOne({ senderId : fields.senderId, clientMessageId : fields.clientMessageId })
+        if(!saved) throw e
+        const sameMessage = saved.message === fields.message && saved.receiverId.equals(fields.receiverId)
+        return sameMessage ? { saved, isNew: false } : null
+    }
+}
 
 export const sendMessage: RequestHandler<ChatParams, MessageDocument | ErrorBody> = async (req, res) => {
 
@@ -17,7 +53,7 @@ export const sendMessage: RequestHandler<ChatParams, MessageDocument | ErrorBody
         const input = SendMessageBody.safeParse(req.body)
         if(!input.success) return res.status(400).json(invalid(input.error))
 
-        const {message} = input.data
+        const {message, clientMessageId} = input.data
         const {id: receiverId} = params.data
         const user = loggedInUser(req)
         const senderId = user._id
@@ -33,12 +69,19 @@ export const sendMessage: RequestHandler<ChatParams, MessageDocument | ErrorBody
 
         // The message points to its conversation, so sending costs the same at
         // message 10 or message 10 million.
-        const newMessage = await Message.create({
-            conversationId : conversation._id,
-            senderId,
-            receiverId,
-            message
-        })
+        const result = await saveOnce({ conversationId : conversation._id, senderId, receiverId, message, clientMessageId })
+
+        // Reusing an id for different text, or for someone else, is a bug in the
+        // client, not a retry: returning the old message would claim the new one was sent.
+        if(!result) {
+            return res.status(422).json({error : "That clientMessageId was already used for a different message"})
+        }
+        // A retry: answer as if this request had saved the message. The first one
+        // already pushed it live, so pushing it again would only repeat the receiver's toast.
+        if(!result.isNew) {
+            return res.status(201).json(result.saved)
+        }
+        const newMessage = result.saved
 
         // Push the saved message to everyone who should see it live.
         // Rooms are named after user ids (see socket/socket.ts), so:
@@ -77,11 +120,19 @@ const parseCursor = (createdAt: QueryValue, id: QueryValue) => {
     return { date, id }
 }
 
+// The order a page is read in: by time, then by _id between messages saved in the
+// same millisecond. A type rather than an interface: sort() takes any field names,
+// and only a type counts as matching that.
+type PageOrder = {
+    createdAt: SortOrder
+    _id: SortOrder
+}
+
 // One page of a chat, as MongoDB is asked for it.
 interface Page {
     limit: number
     filter: FilterQuery<MessageDocument>
-    sort: { createdAt: SortOrder, _id: SortOrder }
+    sort: PageOrder
 }
 
 // Reads which page GET /api/messages/:id asks for. A page is `limit` messages:

@@ -33,7 +33,10 @@ function createEmitter(): Emitter {
 }
 
 // A fake socket. Its io is the Manager, which emits "reconnect".
-export type FakeSocket = Emitter & { io: Emitter; close: jest.Mock };
+export interface FakeSocket extends Emitter {
+  io: Emitter;
+  close: jest.Mock;
+}
 
 const sockets: FakeSocket[] = [];
 

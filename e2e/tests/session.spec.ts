@@ -2,6 +2,12 @@ import { test, expect, messages, openChat, expectOnline, expectOffline } from ".
 import type { Route, WebSocketRoute } from "@playwright/test";
 import { API } from "../urls.ts";
 
+// One of Bob's WebSockets, as the test proxies it: his page's end and the server's.
+interface ProxiedSocket {
+  page: WebSocketRoute;
+  server: WebSocketRoute;
+}
+
 test("E2E-10: a lost cookie sends you back to login with a single toast", async ({ makeUser }) => {
   const ann = await makeUser("Ann");
   const page = await ann.open();
@@ -32,7 +38,7 @@ test("E2E-11: after the connection drops and comes back, the open chat catches u
   const bob = await makeUser("Bob");
   // context.setOffline() can't be used here: Chromium's offline mode leaves an
   // open WebSocket running. Instead Bob's WebSockets go through a proxy the test can cut.
-  const bobSockets: { page: WebSocketRoute; server: WebSocketRoute }[] = [];
+  const bobSockets: ProxiedSocket[] = [];
   let upgraded: () => void;
   const bobUpgraded = new Promise<void>((resolve) => { upgraded = resolve; });
   await bob.context.routeWebSocket(/\/socket\.io\//, (page) => {

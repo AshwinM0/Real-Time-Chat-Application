@@ -34,6 +34,11 @@ const retryIfClosed = async <T>(command: () => Promise<T>): Promise<T> => {
     }
 };
 
+// The prefix for the store's keys. Each limiter needs its own.
+export interface JavaRedisStoreOptions {
+    prefix?: string;
+}
+
 export class JavaRedisStore implements Store {
     readonly client: RateLimitRedis;
     readonly prefix: string;
@@ -42,7 +47,7 @@ export class JavaRedisStore implements Store {
     // the limiter is created, before any request is counted.
     windowMs = 0;
 
-    constructor(client: RateLimitRedis, { prefix = "rl:" }: { prefix?: string } = {}) {
+    constructor(client: RateLimitRedis, { prefix = "rl:" }: JavaRedisStoreOptions = {}) {
         this.client = client;
         this.prefix = prefix;
     }

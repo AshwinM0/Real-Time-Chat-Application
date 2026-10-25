@@ -1,7 +1,7 @@
 import type { Request } from "express";
 import { rateLimit, type AugmentedRequest, type Options } from "express-rate-limit";
 import type { ParamsDictionary } from "express-serve-static-core";
-import type { RedisClients } from "../redis/client.ts";
+import type { RedisOptions } from "../redis/client.ts";
 import type { ErrorBody } from "../types.ts";
 import { errorMessage } from "../utils/errorMessage.ts";
 import type { LoginBody } from "../validation.ts";
@@ -69,7 +69,7 @@ interface LimiterSettings extends Partial<Options> {
     what: string;
 }
 
-export const createRateLimits = ({ redis }: { redis?: RedisClients } = {}) => {
+export const createRateLimits = ({ redis }: RedisOptions = {}) => {
     const client = redis?.pub.withCommandOptions({ timeout: STORE_TIMEOUT_MS });
 
     const limiter = ({ name, env, limit, windowMs, what, ...options }: LimiterSettings) => rateLimit({

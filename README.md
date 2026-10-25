@@ -26,7 +26,7 @@ A one-to-one chat app built in TypeScript with MongoDB, Express, React and Node.
 
 ## How it works
 
-- **REST for everything stored.** Signing up, logging in, listing users and loading history go through the Express API. Sending a message is a `POST` that saves it to MongoDB.
+- **REST for everything stored.** Signing up, logging in, listing users and loading history go through the Express API. Sending a message is a `POST` that saves it to MongoDB. Each message carries an id its browser picked, so sending it again after an answer that never arrived returns the saved message instead of saving a second copy.
 - **Sockets for everything live.** After saving a message, the server pushes it to the receiver and to all of the sender's tabs. Each socket joins a room named after its user's id, so one emit reaches every tab and device that user has open.
 - **One identity check for both.** The socket handshake carries the same `jwt` cookie as API requests, so the server knows who each socket belongs to without trusting anything the client says.
 - **Presence lives in memory.** The server keeps a map from user id to open sockets and broadcasts the online list whenever someone connects or disconnects. Because the map lives in one process, this design assumes a single server instance.
@@ -142,6 +142,8 @@ GitHub Actions checks the types and lint, and runs all three suites, on every pu
 The code is TypeScript in strict mode, with `noUncheckedIndexedAccess`. tsx (in development), Babel (in Jest) and Vite only remove the types without checking them, so `npm run typecheck` and CI are what catch type errors.
 
 Lint rules keep `any` out of the app's code, though not out of the tests: no `any` or `unknown` written out, no `as` casts, no non-null `!`, and no passing on an `any` that a library returned, such as from `JSON.parse`. Where one is truly needed, the rule is turned off on that line with the reason: a caught error, and the Express error handler's argument, can be any value, so those are `unknown` until checked.
+
+Every object type also has a name, tests included: it's declared with `interface` or `type` and used by that name, never written out inside a signature, props, a generic argument or a union. The same lint configs enforce it.
 
 Requests are checked when they arrive. Each handler first parses its body and path with a zod schema from [backend/validation.ts](backend/validation.ts), and the body's type comes from that schema. Input that doesn't fit is a 400 saying what's wrong. A field that should be text has to be text, so a query operator such as `{"$ne": null}` sent as a username never reaches MongoDB.
 

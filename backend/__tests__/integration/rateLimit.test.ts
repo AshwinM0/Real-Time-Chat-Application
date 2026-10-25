@@ -1,4 +1,5 @@
 import { jest } from "@jest/globals";
+import { randomUUID } from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import request from "supertest";
@@ -28,7 +29,12 @@ const LOW_LIMITS: Record<string, string> = {
 // A server under test: its own app, so its own counters, on the same database.
 // It has no Socket.IO of its own; sendMessage pushes through the setup server's.
 const servers: http.Server[] = [];
-async function startServer({ redis, env = LOW_LIMITS }: { redis?: any; env?: Record<string, string> } = {}) {
+interface ServerOptions {
+  redis?: any;
+  env?: Record<string, string>;
+}
+
+async function startServer({ redis, env = LOW_LIMITS }: ServerOptions = {}) {
   const saved = Object.fromEntries(Object.keys(env).map((name) => [name, process.env[name]]));
   Object.assign(process.env, env);
   const httpServer = http.createServer(createApp({ redis }));
@@ -56,8 +62,8 @@ const signUpFrom = (server: Server, ip: string, username: string) =>
     fullName: "Test User", username, password: "secret123", confirmPassword: "secret123", gender: "female",
   });
 
-const send = (server: Server, from: TestUser, to: { id: string }, message: string) =>
-  request(server.url).post(`/api/messages/send/${to.id}`).set("Cookie", from.cookie).send({ message });
+const send = (server: Server, from: TestUser, to: Pick<TestUser, "id">, message: string) =>
+  request(server.url).post(`/api/messages/send/${to.id}`).set("Cookie", from.cookie).send({ message, clientMessageId: randomUUID() });
 
 // Retries check() for up to half a second, until it stops throwing. A limiter takes
 // back a successful login's hit only once the response has gone out.

@@ -1,7 +1,7 @@
 import type { Server as HttpServer } from "node:http";
 import { Server } from "socket.io";
 import type { MessageDocument } from "../models/messageModel.ts";
-import type { RedisClients } from "../redis/client.ts";
+import type { RedisOptions } from "../redis/client.ts";
 import { errorMessage } from "../utils/errorMessage.ts";
 import getUserFromToken from "../utils/getUserFromToken.ts";
 import { loginToken } from "../utils/loginToken.ts";
@@ -44,7 +44,7 @@ const sessionRoom = (jti: string) => `session:${jti}`;
 // redis: the clients from connectRedis() when REDIS_URL is set. Not used yet: the
 // cross-server adapter and the shared online list will start here with it, which
 // is why this is async.
-export const initSocket = async (httpServer: HttpServer, { redis: _redis }: { redis?: RedisClients } = {}) => {
+export const initSocket = async (httpServer: HttpServer, { redis: _redis }: RedisOptions = {}) => {
     // Presence bookkeeping: userId -> Set of socket ids.
     // One user can hold several sockets at once (two tabs, laptop + phone).
     // They count as online while at least one of those sockets is connected.

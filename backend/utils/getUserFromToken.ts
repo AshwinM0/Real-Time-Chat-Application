@@ -2,12 +2,24 @@ import User, { type PublicUser, type PublicUserFields } from "../models/userMode
 import revokedTokenStore from "../stores/revokedTokenStore.ts";
 import verifyToken from "./verifyToken.ts";
 
-// Who a login token belongs to: the user and the token's id (jti), or why the token
-// was refused. Each side names the other's fields as undefined, so a caller can
-// destructure { user, error } and checking one tells TypeScript about the other.
-export type TokenCheck =
-    | { user: PublicUser; jti: string; error?: undefined }
-    | { error: string; user?: undefined; jti?: undefined }
+// A token that checked out: whose it is, and its id (jti).
+export interface AcceptedToken {
+    user: PublicUser
+    jti: string
+    error?: undefined
+}
+
+// A token that was refused, and why.
+export interface RefusedToken {
+    error: string
+    user?: undefined
+    jti?: undefined
+}
+
+// Who a login token belongs to, or why it was refused. Each names the other's fields
+// as undefined, so a caller can destructure { user, error }, and checking one tells
+// TypeScript about the other.
+export type TokenCheck = AcceptedToken | RefusedToken
 
 // Turns the value of the "jwt" cookie into a user.
 // Shared by protectRoute (HTTP requests) and the Socket.IO handshake, so both

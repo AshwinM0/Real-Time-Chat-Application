@@ -6,19 +6,29 @@
 // assertions, or pass along an `any` that came from a library (the no-unsafe-*
 // rules, which need the type checker: hence projectService). Where one is truly
 // needed, such as reading a caught error, disable the rule on that line with
-// `-- <why>`. Tests and their helpers are exempt.
+// `-- <why>`. Tests and their helpers are exempt from those.
+//
+// Every object type has a name, tests included: it's declared with `interface` or
+// `type` and used by that name, never written out in a signature, props, a generic
+// argument, a union or inside another type.
 import js from "@eslint/js";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
+const namedTypes = {
+  selector: "TSTypeLiteral:not(TSTypeAliasDeclaration > TSTypeLiteral)",
+  message: "Name this type: declare it with `interface` or `type`, and use the name here.",
+};
+const noUnknown = {
+  selector: "TSUnknownKeyword",
+  message: "Give it a real type. If it can truly be anything, such as a caught error, disable this rule on that line and say why.",
+};
+
 const typeRules = {
   "@typescript-eslint/no-explicit-any": "error",
-  "no-restricted-syntax": ["error", {
-    selector: "TSUnknownKeyword",
-    message: "Give it a real type. If it can truly be anything, such as a caught error, disable this rule on that line and say why.",
-  }],
+  "no-restricted-syntax": ["error", noUnknown, namedTypes],
   "@typescript-eslint/no-unsafe-argument": "error",
   "@typescript-eslint/no-unsafe-assignment": "error",
   "@typescript-eslint/no-unsafe-call": "error",
@@ -62,6 +72,8 @@ export default tseslint.config(
     files: ["**/__tests__/**", "test/**"],
     rules: {
       ...Object.fromEntries(Object.keys(typeRules).map((rule) => [rule, "off"])),
+      // unknown is allowed here, but types still have names.
+      "no-restricted-syntax": ["error", namedTypes],
       "react-refresh/only-export-components": "off",
     },
   },

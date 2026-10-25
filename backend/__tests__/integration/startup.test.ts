@@ -17,9 +17,15 @@ afterAll(() => rmSync(emptyDir, { recursive: true, force: true }));
 
 const APP_VARIABLES = ["PORT", "MONGO_DB_URI", "JWT_SECRET", "REDIS_URL", "REDIS_TLS_CA", "REDIS_TLS_CERT", "REDIS_TLS_KEY"];
 
+// How the server process ended, and everything it printed.
+interface ServerExit {
+  code: number | null;
+  output: string;
+}
+
 const startServer = (appEnv: Record<string, string>) => {
   const osEnv = Object.fromEntries(Object.entries(process.env).filter(([name]) => !APP_VARIABLES.includes(name)));
-  return new Promise<{ code: number | null; output: string }>((resolve) => {
+  return new Promise<ServerExit>((resolve) => {
     const child = spawn(process.execPath, ["--import", tsxLoader, serverTs], { cwd: emptyDir, env: { ...osEnv, ...appEnv } });
     let output = "";
     child.stdout.on("data", (chunk) => { output += chunk; });

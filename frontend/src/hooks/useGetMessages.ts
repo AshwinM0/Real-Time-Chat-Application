@@ -12,9 +12,19 @@ import { isApiError, readJson } from '../utils/json'
 // means the start of the chat has been reached.
 export const PAGE_SIZE = 50
 
+// The messages just before one message, or just after it, by its createdAt and _id.
+interface BeforeCursor {
+    before: string
+    beforeId: string
+}
+interface AfterCursor {
+    after: string
+    afterId: string
+}
+
 // Which page to fetch: nothing for the newest messages, or the messages just
-// before or just after one message (its createdAt and _id).
-type Cursor = Record<string, never> | { before: string, beforeId: string } | { after: string, afterId: string }
+// before or just after one message.
+type Cursor = Record<string, never> | BeforeCursor | AfterCursor
 
 // Loads the open chat a page at a time: the newest messages when it opens, older
 // ones when Messages.tsx asks (the user scrolled to the top), and whatever was

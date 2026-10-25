@@ -1,4 +1,5 @@
 import { jest } from "@jest/globals";
+import { randomUUID } from "node:crypto";
 import request from "supertest";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import type { Socket } from "socket.io-client";
@@ -16,12 +17,19 @@ afterEach(async () => {
 });
 afterAll(() => server.close());
 
-const send = (from: TestUser, to: TestUser, message: string) =>
-  request(server.url).post(`/api/messages/send/${to.id}`).set("Cookie", from.cookie).send({ message });
+// Every call is a new message, unless the test passes an earlier one's clientMessageId.
+const send = (from: TestUser, to: TestUser, message: string, clientMessageId = randomUUID()) =>
+  request(server.url).post(`/api/messages/send/${to.id}`).set("Cookie", from.cookie).send({ message, clientMessageId });
+
+// What a newMessage event carries.
+interface Delivery {
+  message: any;
+  sender: any;
+}
 
 // Start listening BEFORE triggering the event, so it can't slip past.
 const nextMessage = (socket: Socket) =>
-  new Promise<{ message: any; sender: any }>((resolve) => socket.once("newMessage", (message, sender) => resolve({ message, sender })));
+  new Promise<Delivery>((resolve) => socket.once("newMessage", (message, sender) => resolve({ message, sender })));
 
 describe("handshake authentication", () => {
   test("BI-20: connecting without a cookie is refused as Unauthorized", async () => {
@@ -145,6 +153,22 @@ describe("message delivery", () => {
     // Proving that something did NOT happen needs a short wait.
     await new Promise((r) => setTimeout(r, 200));
     expect(carolGot).not.toHaveBeenCalled();
+  });
+
+  test("BI-77: a send retried with the same clientMessageId is pushed only once", async () => {
+    const [alice, bob] = await Promise.all([signUp(server, "alice"), signUp(server, "bob")]);
+    const b1 = await connectSocket(server, bob).ready;
+    const received = jest.fn();
+    b1.on("newMessage", received);
+    const id = randomUUID();
+
+    await send(alice, bob, "hi", id).expect(201);
+    await send(alice, bob, "hi", id).expect(201);
+
+    // Pushing it again would show Bob a second toast. Proving that something did
+    // NOT happen needs a short wait.
+    await new Promise((r) => setTimeout(r, 200));
+    expect(received).toHaveBeenCalledTimes(1);
   });
 
   test("BI-29: a message to someone offline is still saved, and loads over REST later", async () => {

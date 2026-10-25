@@ -13,7 +13,14 @@ import { invalid, LoginBody, SignUpBody } from "../validation.ts"
 
 // What signing up and logging in answer with: the user now logged in, which the
 // frontend keeps.
-type LoggedInUser = Pick<UserFields, "fullName" | "username" | "profilePic"> & { _id: Types.ObjectId }
+interface LoggedInUser extends Pick<UserFields, "fullName" | "username" | "profilePic"> {
+    _id: Types.ObjectId
+}
+
+// What logging out answers with.
+interface LogoutBody {
+    message: string
+}
 
 
 //SIGNUP
@@ -116,7 +123,7 @@ export const login: RequestHandler<ParamsDictionary, LoggedInUser | ErrorBody> =
 
 
 //LOGOUT
-export const logout: RequestHandler<ParamsDictionary, { message: string } | ErrorBody> = async (req, res) => {
+export const logout: RequestHandler<ParamsDictionary, LogoutBody | ErrorBody> = async (req, res) => {
 
     try {
         // Revoke the token itself, so a copy of the cookie stops working too, then

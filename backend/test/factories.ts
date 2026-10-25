@@ -12,8 +12,13 @@ export interface TestUser {
   cookie: string;
 }
 
+// Where a server under test listens.
+export interface ServerAddress {
+  url: string;
+}
+
 // Signs up a user through the real endpoint and returns their id and login cookie.
-export async function signUp(server: { url: string }, name: string): Promise<TestUser> {
+export async function signUp(server: ServerAddress, name: string): Promise<TestUser> {
   const username = `${name}_${process.pid}_${++n}`;
   const res = await request(server.url).post("/api/auth/signup").send({
     fullName: `Test ${name}`, username, password: "secret123", confirmPassword: "secret123", gender: "male",
@@ -24,13 +29,22 @@ export async function signUp(server: { url: string }, name: string): Promise<Tes
 
 const openSockets = new Set<Socket>();
 
-// A client socket, plus a promise that settles once it connects or is refused,
-// and every onlineUsers list it has received, in order.
-export type TestSocket = Socket & { ready: Promise<Socket>; onlineHistory: string[][] };
+// What connectSocket adds to a client socket: a promise that settles once it
+// connects or is refused, and every onlineUsers list it has received, in order.
+interface SocketTracking {
+  ready: Promise<Socket>;
+  onlineHistory: string[][];
+}
+export type TestSocket = Socket & SocketTracking;
+
+// Who a socket connects as: their login cookie, if they have one.
+export interface SocketUser {
+  cookie?: string;
+}
 
 export function connectSocket(
-  server: { url: string },
-  user: { cookie?: string } | null,
+  server: ServerAddress,
+  user: SocketUser | null,
   opts: Partial<ManagerOptions & SocketOptions> = {},
 ): TestSocket {
   const socket = ioClient(server.url, {

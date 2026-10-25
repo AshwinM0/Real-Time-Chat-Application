@@ -38,6 +38,11 @@ export interface ApiError {
     error: string
 }
 
+// What logging out answers with.
+export interface LogoutResponse {
+    message: string
+}
+
 // What the server sends over the socket. The app sends nothing back.
 export interface ServerToClientEvents {
     // Everyone online, by user id, after every connect and disconnect.

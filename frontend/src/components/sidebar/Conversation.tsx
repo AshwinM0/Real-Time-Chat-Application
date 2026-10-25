@@ -2,8 +2,13 @@ import useConversation from "../../zustand/useConversation";
 import { useSocketContext } from "../../context/SocketContext";
 import type { User } from "../../types";
 
-// lastIdx: whether this is the last user in the list, which has no divider after it.
-const Conversation = ({conversation, lastIdx}: { conversation: User, lastIdx?: boolean }) => {
+interface ConversationProps {
+  conversation: User
+  // Whether this is the last user in the list, which has no divider after it.
+  lastIdx?: boolean
+}
+
+const Conversation = ({conversation, lastIdx}: ConversationProps) => {
 
   const {selectedConversation, setSelectedConversation} = useConversation()
   const { onlineUsers } = useSocketContext()

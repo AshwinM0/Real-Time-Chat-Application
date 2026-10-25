@@ -6,6 +6,7 @@ import { useAuthContext } from "../../context/AuthContext";
 import { lastSocket } from "../../../test/fakeSocket";
 import { renderHookWithProviders } from "../../../test/renderWithProviders";
 import { jsonResponse } from "../../../test/http";
+import type { ChatMessage } from "../../types";
 
 const select = (_id: string) => useConversation.getState().setSelectedConversation({ _id } as any);
 
@@ -15,7 +16,7 @@ const msg = (n: number) => ({
   createdAt: new Date(Date.UTC(2026, 0, 1) + n * 1000).toISOString(),
 });
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => msg(from + i));
-const ids = (messages: { _id: string }[]) => messages.map((m) => m._id);
+const ids = (messages: Pick<ChatMessage, "_id">[]) => messages.map((m) => m._id);
 
 // The URL and query of the nth fetch (1-based).
 const nthRequest = (n: number) => {

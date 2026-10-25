@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuthContext } from '../context/AuthContext'
 import toast from 'react-hot-toast'
 import { API_URL } from '../config'
-import type { ApiError } from '../types'
+import type { ApiError, LogoutResponse } from '../types'
 import { errorMessage } from '../utils/errorMessage'
 import { isApiError, readJson } from '../utils/json'
 
@@ -19,7 +19,7 @@ const useLogout = () => {
             credentials: 'include',
             headers: {"Content-Type" : "application/json"}
         })
-        const data = await readJson<{ message: string } | ApiError>(res)
+        const data = await readJson<LogoutResponse | ApiError>(res)
 
         if(isApiError(data)) {
             throw new Error(data.error)

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import request from "supertest";
 import mongoose from "mongoose";
 import Conversation from "../../models/conversationModel.ts";
@@ -10,8 +11,9 @@ beforeAll(async () => { server = await startTestServer("messages_test"); });
 afterEach(() => server.reset());
 afterAll(() => server.close());
 
-const send = (from: TestUser, to: TestUser, message: string) =>
-  request(server.url).post(`/api/messages/send/${to.id}`).set("Cookie", from.cookie).send({ message });
+// Every call is a new message, unless the test passes an earlier one's clientMessageId.
+const send = (from: TestUser, to: TestUser, message: string, clientMessageId = randomUUID()) =>
+  request(server.url).post(`/api/messages/send/${to.id}`).set("Cookie", from.cookie).send({ message, clientMessageId });
 
 describe("users", () => {
   test("BI-8: listing users needs a login cookie", async () => {
@@ -108,6 +110,16 @@ describe("messages", () => {
       expect(res.body).toEqual({ error: "Message must be text" });
       expect(await Message.countDocuments()).toBe(0);
     });
+    test("a missing or malformed clientMessageId", async () => {
+      const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+      const post = (body: object) =>
+        request(server.url).post(`/api/messages/send/${bob.id}`).set("Cookie", ann.cookie).send(body);
+
+      expect((await post({ message: "hi" }).expect(400)).body).toEqual({ error: "clientMessageId is required" });
+      expect((await post({ message: "hi", clientMessageId: "short" }).expect(400)).body)
+        .toEqual({ error: "clientMessageId must be 16 to 64 letters, digits, - or _" });
+      expect(await Message.countDocuments()).toBe(0);
+    });
   });
 
   test("BI-71: loading or marking read a chat with a malformed user id is a 400, not a 500", async () => {
@@ -143,6 +155,72 @@ const seedHistory = async (from: TestUser, to: TestUser, count: number, { sameTi
   await Message.collection.insertMany(docs);
   return docs.map((d) => d.message);
 };
+
+// Known issue #12: a send whose answer never arrived looks failed, so the user
+// sends it again. The browser reuses the message's clientMessageId for that.
+describe("a message sent again", () => {
+  test("BI-72: a retry with the same clientMessageId gets the first message back, and saves nothing new", async () => {
+    const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+    const id = randomUUID();
+
+    const first = await send(ann, bob, "hi", id).expect(201);
+    const retry = await send(ann, bob, "hi", id).expect(201);
+
+    expect(retry.body).toEqual(first.body);
+    expect(await Message.countDocuments()).toBe(1);
+  });
+
+  test("BI-73: two sends with the same clientMessageId at the same moment save one message, and both get it", async () => {
+    await Message.init(); // the unique index must exist first
+    const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+    const id = randomUUID();
+
+    // Both insert before either has finished; the unique index lets one in.
+    const [a, b] = await Promise.all([send(ann, bob, "hi", id).expect(201), send(ann, bob, "hi", id).expect(201)]);
+
+    expect(a.body._id).toBe(b.body._id);
+    expect(await Message.countDocuments()).toBe(1);
+  });
+
+  test("BI-74: the same clientMessageId for a different message is a 422, and saves nothing", async () => {
+    const [ann, bob, cat] = await Promise.all(["ann", "bob", "cat"].map((n) => signUp(server, n)));
+    const id = randomUUID();
+    await send(ann, bob, "hi", id).expect(201);
+
+    const otherText = await send(ann, bob, "something else", id).expect(422);
+    const otherPerson = await send(ann, cat, "hi", id).expect(422);
+
+    expect(otherText.body).toEqual({ error: "That clientMessageId was already used for a different message" });
+    expect(otherPerson.body).toEqual(otherText.body);
+    expect(await Message.countDocuments()).toBe(1);
+  });
+
+  test("BI-75: ids belong to their sender, so two users can use the same one", async () => {
+    await Message.init();
+    const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+    const id = randomUUID();
+
+    await send(ann, bob, "hi bob", id).expect(201);
+    await send(bob, ann, "hi ann", id).expect(201);
+
+    expect(await Message.countDocuments()).toBe(2);
+  });
+
+  test("BI-76: the index is unique per sender, and messages from before clientMessageId don't collide in it", async () => {
+    await Message.init();
+    expect(await Message.collection.indexes()).toContainEqual(expect.objectContaining({
+      key: { senderId: 1, clientMessageId: 1 },
+      unique: true,
+      partialFilterExpression: { clientMessageId: { $exists: true } },
+    }));
+
+    // Older messages have no clientMessageId. A unique index that included them
+    // would count each as null, and refuse a sender's second one.
+    const [ann, bob] = await Promise.all([signUp(server, "ann"), signUp(server, "bob")]);
+    await seedHistory(ann, bob, 3);
+    expect(await Message.countDocuments({ clientMessageId: { $exists: false } })).toBe(3);
+  });
+});
 
 describe("history pages", () => {
   const history = (user: TestUser, other: TestUser, query: Record<string, any> = {}) =>

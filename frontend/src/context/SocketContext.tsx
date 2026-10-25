@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type PropsWithChildren } from "react";
 import { io, type Socket } from "socket.io-client";
 import { useAuthContext } from "./AuthContext";
 import { API_URL } from "../config";
@@ -19,7 +19,7 @@ export const useSocketContext = () => useContext(SocketContext);
 
 // Owns the app's single socket connection and the list of online user ids.
 // It sits inside AuthContextProvider because the socket's lifetime follows the login.
-export const SocketContextProvider = ({ children }: { children: ReactNode }) => {
+export const SocketContextProvider = ({ children }: PropsWithChildren) => {
     const { authUser, expireSession } = useAuthContext();
     const [socket, setSocket] = useState<ChatSocket | null>(null);
     const [onlineUsers, setOnlineUsers] = useState<string[]>([]);

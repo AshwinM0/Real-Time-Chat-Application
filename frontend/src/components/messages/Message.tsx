@@ -3,7 +3,11 @@ import useConversation from '../../zustand/useConversation';
 import { extractTime } from '../../utils/extractTime';
 import type { ChatMessage } from '../../types';
 
-const Message = ({message}: { message: ChatMessage }) => {
+interface MessageProps {
+  message: ChatMessage
+}
+
+const Message = ({message}: MessageProps) => {
 
   const {authUser} = useAuthContext();
   const {selectedConversation} = useConversation()
