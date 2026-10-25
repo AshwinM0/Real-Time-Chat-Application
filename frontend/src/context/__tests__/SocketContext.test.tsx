@@ -20,13 +20,17 @@ test("FU-30: no socket while logged out", () => {
   expect(socketCtx.socket).toBeNull();
 });
 
-test("FU-31: logging in opens one socket to the API, with credentials", () => {
+test("FU-31: logging in opens one socket to the API, with credentials, WebSocket first", () => {
   renderWithProviders(<Probe />, { user: null });
 
   act(() => authCtx.setAuthUser(ME));
 
   expect(io).toHaveBeenCalledTimes(1);
-  expect(io).toHaveBeenCalledWith("http://api.test", { withCredentials: true });
+  expect(io).toHaveBeenCalledWith("http://api.test", {
+    withCredentials: true,
+    transports: ["websocket", "polling"],
+    tryAllTransports: true,
+  });
   expect(socketCtx.socket).toBe(lastSocket());
 });
 

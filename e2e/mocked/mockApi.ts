@@ -25,8 +25,12 @@ export async function mockApi(page: Page, path: string, { status = 200, json, de
   });
 }
 
-// No socket at all: every Socket.IO request fails, as if a proxy blocked them.
-export const blockSockets = (page: Page) => page.route(`${API}/socket.io/**`, (route) => route.abort());
+// No socket at all, as if a proxy blocked them: every WebSocket closes before it
+// opens, and every polling request fails. page.route() alone doesn't see WebSockets.
+export const blockSockets = async (page: Page) => {
+  await page.routeWebSocket(/\/socket\.io\//, (ws) => ws.close());
+  await page.route(`${API}/socket.io/**`, (route) => route.abort());
+};
 
 // Starts the page as if this user had logged in earlier. A logged-in page also loads
 // the unread counts and marks the open chat as read, so those answer "nothing unread"

@@ -29,10 +29,21 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
         // Logged out: no socket. (The previous one was closed by the cleanup below.)
         if (!userId) return;
 
-        // io() opens the connection. withCredentials makes the browser attach the
-        // jwt cookie to the handshake request, which is how the server knows who we are.
-        // Nothing here sends a user id: the server reads it from the verified cookie.
-        const newSocket: ChatSocket = io(API_URL, { withCredentials: true });
+        // io() opens the connection. The browser attaches the jwt cookie to the
+        // handshake (withCredentials is what lets it do so on the polling fallback),
+        // which is how the server knows who we are. Nothing here sends a user id:
+        // the server reads it from the verified cookie.
+        //
+        // It connects over WebSocket straight away and falls back to HTTP polling only
+        // if that fails. Socket.IO's default is the reverse, polling first and upgrading
+        // a moment later, but a tab closed during that upgrade left a connection the
+        // server couldn't see was gone until its heartbeat timed out, about 45 seconds
+        // later, and the user stayed online all that time.
+        const newSocket: ChatSocket = io(API_URL, {
+            withCredentials: true,
+            transports: ["websocket", "polling"],
+            tryAllTransports: true,
+        });
 
         // The server broadcasts the full list on every connect/disconnect.
         newSocket.on("onlineUsers", setOnlineUsers);
